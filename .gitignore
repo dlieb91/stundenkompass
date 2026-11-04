@@ -1,0 +1,25 @@
+# Lokale Claude-Einstellungen – enthalten Pfade und Benutzernamen dieses
+# Rechners und gehören niemandem außer diesem Rechner.
+.claude/
+
+# Prüfdateien, die beim Testen im Projektordner entstehen
+pruef-*
+*.pruef.*
+
+# Zeitdaten gehören NICHT ins Repository – das Repository ist öffentlich.
+#   daten/        Team-Betrieb: Konten samt Passwort-Hashes, Datensätze, Sicherungen
+#   stunden.json  Einzelplatz: liegt im Ordner, den du beim ersten Start wählst
+daten/
+stunden.json
+backups/
+
+# Betriebssystem und Editoren
+Thumbs.db
+desktop.ini
+.DS_Store
+*.swp
+.vscode/
+.idea/
+
+# Node
+node_modules/
