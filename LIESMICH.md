@@ -190,6 +190,34 @@ Abschnitten **ist** bereits die Pause – das Pausenfeld bleibt dann leer.
 
 Ein Abschnitt über Mitternacht ist erlaubt: 22:00–06:00 sind acht Stunden.
 
+### Stempeluhr
+
+Oben im **Dashboard** steht die Stempeluhr, auf PC, iPad und Handy dieselbe:
+**Kommen**, **Pause**, **Gehen**, **Weiter arbeiten**. Ein Tipp trägt die aktuelle Uhrzeit
+als Abschnitt in den heutigen Tag ein. Daneben stehen die heute gearbeitete Zeit (der
+laufende Abschnitt zählt mit) und die Uhrzeit, zu der das Tagessoll ohne weitere Pause
+erreicht ist.
+
+- **Pause** und **Gehen** beenden beide den laufenden Abschnitt. Die Lücke bis zum
+  nächsten *Weiter arbeiten* ist die Pause und zählt für die gesetzliche Mindestpause mit,
+  sofern sie mindestens 15 Minuten dauert (ArbZG § 4).
+- **Projekte:** Gibt es Projekte, steht über den Knöpfen eine Auswahl. Ein Wechsel während
+  der Arbeit beendet den Abschnitt und beginnt ohne Lücke einen neuen auf dem anderen
+  Projekt.
+- **Geräteübergreifend:** Die Stempeluhr hat keinen eigenen Speicher. Eingestempelt ist,
+  wer einen Abschnitt mit Beginn und ohne Ende hat. Am Handy kommen und am PC gehen
+  funktioniert deshalb, mit Dropbox oder im Team über den Server.
+- **Über Mitternacht:** Wer um 22:00 kommt und um 02:00 geht, bekommt einen Abschnitt
+  22:00–02:00 am Vortag.
+- **Vergessen auszustempeln?** Läuft ein Abschnitt länger als 14 Stunden, weist die Karte
+  darauf hin. Korrigiert wird in der Erfassung.
+- **Feiertag, Wochenende, Urlaub:** Die Tagesart bleibt, wie sie ist. Die gestempelte Zeit
+  kommt zur Gutschrift dazu, ein gestempelter Feiertag läuft also nicht ins Minus.
+- Ein laufender Abschnitt von heute oder gestern gilt nicht als „halb ausgefüllt".
+- **Im Team** stempelt jeder nur für sich. Wer als Verwaltung einen Mitarbeiter
+  betrachtet, sieht die Stempeluhr nicht.
+- Es zählt die Uhr des Geräts. Geht sie falsch, sind die Zeiten falsch.
+
 ### Tagesarten
 
 | Art | Wirkung aufs Stundenkonto | Urlaub |
@@ -496,11 +524,13 @@ js/api.js           Hülle um fetch() für die /api/-Routen (nur Team)
 js/sitzung.js        Angemeldetes Konto, betrachtetes Konto, Admin-Umschalter
 js/stammdaten.js     Kunden und Projekte: Team vom Server, Einzelplatz aus der eigenen Datei
 js/zeit.js           Uhrzeiten, Abschnitte, Pausen, gesetzliche Grenzen
+js/stempeluhr.js     Kommen, Pause, Gehen, Projektwechsel (rein, ohne Oberfläche)
 js/kalender.js       Datumsrechnung, Kalenderwochen, Feiertage je Bundesland
 js/saldo.js          Stunden- und Urlaubskonto
 js/projekte.js       Aggregation gebuchter Stunden nach Projekt, Kunde, Mitarbeiter
 js/store.js          Datenmodell, Änderungsverwaltung, Migration
 js/ansicht.js         gewählter Monat und gewähltes Jahr (im Browser, nicht in der Datei)
+js/views/stempelkarte.js  die Stempeluhr oben im Dashboard
 js/views/            Team, Dashboard, Erfassung, Vorgaben, Auswertung, Stammdaten,
                      Konten, Einstellungen
 ```

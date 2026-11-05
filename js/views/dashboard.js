@@ -18,6 +18,7 @@ import {
 import { stundenText } from '../zeit.js';
 import { gewaehltesJahr, setJahr, setMonat } from '../ansicht.js';
 import { darfVorgabenBearbeiten } from '../sitzung.js';
+import { stempelKarte, stempelnErlaubt } from './stempelkarte.js';
 
 export const dashboard = {
   render(container) {
@@ -29,6 +30,10 @@ export const dashboard = {
     const daten = state.daten;
     const heute = heuteISO();
     const beginn = erfassungsBeginn(daten);
+
+    // Die Stempeluhr steht ganz oben: Am Handy ist sie der Grund, die App zu
+    // oeffnen. Auch ohne Erfassungsbeginn – gestempelt werden kann immer.
+    if (stempelnErlaubt()) inner.append(stempelKarte(neu));
 
     if (!beginn) {
       // Wer die Vorgaben nicht bearbeiten darf, bekommt keine Einrichtungs-

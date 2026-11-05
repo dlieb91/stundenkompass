@@ -629,6 +629,42 @@ table.data tfoot td {
   .topbar { padding: 0 14px; }
 }
 
+/* ============================================================
+   Stempeluhr (Dashboard) – auf PC, iPad und Handy dieselbe Karte.
+   Die Knoepfe sind bewusst gross: gestempelt wird im Vorbeigehen,
+   oft mit dem Daumen.
+   ============================================================ */
+
+.stempel-karte .card-body { display: grid; gap: 14px; }
+.stempel-karte[data-zustand="laeuft"] { border-color: color-mix(in srgb, var(--pos) 45%, var(--border)); }
+.stempel-kopf { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.stempel-tag { font-weight: 600; font-size: 15px; }
+.stempel-status { font-size: 13px; color: var(--text-dim); margin-top: 2px; }
+.stempel-karte[data-zustand="laeuft"] .stempel-status { color: var(--pos); }
+.stempel-uhr { font-size: 30px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1; }
+.stempel-label { font-size: 12px; color: var(--text-faint); }
+.stempel-ist { font-size: 34px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.15; }
+.stempel-soll { font-size: 13px; color: var(--text-dim); }
+.stempel-aktion { display: grid; gap: 10px; }
+.stempel-projekt select { width: 100%; }
+.stempel-knoepfe { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+.stempel-knopf { min-height: 56px; font-size: 17px; font-weight: 600; justify-content: center; }
+.stempel-hinweis { font-size: 12.5px; color: var(--text-dim); }
+.stempel-hinweis.warn { color: var(--warn); background: var(--warn-soft); padding: 8px 10px; border-radius: var(--radius-sm); }
+.stempel-hinweis a { color: inherit; text-decoration: underline; }
+.stempel-liste { display: flex; flex-wrap: wrap; gap: 6px; }
+.stempel-abschnitt {
+  font-size: 12px; font-variant-numeric: tabular-nums; color: var(--text-dim);
+  border: 1px solid var(--border); border-radius: 999px; padding: 3px 9px;
+}
+.stempel-link { font-size: 12.5px; color: var(--text-faint); justify-self: start; }
+.stempel-link:hover { color: var(--accent); }
+/* Im Desktop-Fenster nebeneinander: links die Zahl, rechts die Knoepfe. */
+@media (min-width: 900px) {
+  .stempel-karte .card-body { grid-template-columns: 1fr minmax(260px, 340px); align-items: center; column-gap: 28px; }
+  .stempel-kopf, .stempel-liste, .stempel-hinweis, .stempel-link { grid-column: 1 / -1; }
+}
+
 /* Die Ansichten sind Grids mit automatischer Spaltenbreite – ohne Grenze
    waechst die Spalte auf die Breite der breitesten Tabelle, und die ganze
    Seite laeuft rechts aus dem Bild. So bleibt die Spalte so breit wie der

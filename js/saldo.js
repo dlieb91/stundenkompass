@@ -23,9 +23,11 @@
       damit die Oberflaeche warnen kann, statt den Nutzer raten zu lassen.
 */
 
-import { stundenZuMinuten, tageszeit } from './zeit.js';
 import {
-  feiertage, heuteISO, istWochenende, jahrVon, monatsTage, wochentag,
+  stundenZuMinuten, tageszeit, unvollstaendig, zuMinuten,
+} from './zeit.js';
+import {
+  feiertage, heuteISO, istWochenende, jahrVon, monatsTage, wochentag, tagePlus,
 } from './kalender.js';
 
 /* ---------- Tagesarten ----------
@@ -133,6 +135,18 @@ export function tagesBilanz(iso, daten, ktx = {}) {
   const zeit = tageszeit(eintrag, { projektpflicht: ktx.projektpflicht });
   const istMin = zeit.istMin;
 
+  /* Ein Abschnitt mit Beginn und ohne Ende ist sonst „nur halb ausgefuellt".
+     Heute – oder gestern, bei einer Schicht ueber Mitternacht – heisst das
+     aber schlicht: eingestempelt, laeuft noch (siehe stempeluhr.js). Das ist
+     keine Beanstandung, solange es der letzte Abschnitt ist und alle
+     anderen vollstaendig sind. */
+  const ivs = eintrag?.intervalle || [];
+  const letzter = ivs[ivs.length - 1];
+  const laeuft = iso >= tagePlus(heute, -1) && iso <= heute
+    && zuMinuten(letzter?.von) != null && zuMinuten(letzter?.bis) == null
+    && !unvollstaendig(ivs.slice(0, -1));
+  const warnungen = laeuft ? zeit.warnungen.filter((w) => w !== 'unvollstaendig') : zeit.warnungen;
+
   // Ein Feiertag oder ein freier Tag hat kein Soll – die Gutschrift hebt es auf.
   const gutschriftMin = artInfo.gutschrift === 'voll' ? planSoll
     : artInfo.gutschrift === 'halb' ? Math.round(planSoll / 2)
@@ -170,7 +184,8 @@ export function tagesBilanz(iso, daten, ktx = {}) {
     geplant,
     luecke,
     erfasst: !!eintrag && (zeit.bruttoMin > 0 || !!eintrag.art),
-    warnungen: zeit.warnungen,
+    warnungen,
+    laeuft,
   };
 }
 
