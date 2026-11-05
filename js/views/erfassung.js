@@ -19,6 +19,7 @@ import {
 } from './tagzugriff.js';
 import { tagesListe } from './erfassungHandy.js';
 import { handyAnsicht } from '../ansicht.js';
+import { berichtDrucken } from './berichtDruck.js';
 import {
   WOCHENTAGE, heuteISO, monatsBezeichnung, kwNummer, istWochenende, wochentag,
 } from '../kalender.js';
@@ -83,6 +84,11 @@ function werkzeugleiste(jahr, monat, bilanz, neu) {
         el('button.btn.btn-sm.btn-primary', {
           type: 'button', onclick: () => urlaubPlanen(jahr, monat, neu),
         }, ['Urlaub planen …']),
+        el('button.btn.btn-sm', {
+          type: 'button',
+          title: 'Bericht für diesen Monat drucken oder im Druckdialog als PDF speichern',
+          onclick: () => berichtDrucken(jahr, monat),
+        }, ['Monatsbericht (PDF)']),
       ]),
     ]),
   ]);

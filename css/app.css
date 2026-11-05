@@ -923,3 +923,71 @@ body.handy .summe:nth-child(n+4) { grid-column: span 3; }
 .mehr-pfeil { margin-left: auto; color: var(--text-faint); font-size: 20px; }
 .mehr-eintrag .nav-badge { margin-left: auto; }
 .mehr-eintrag .nav-badge + .mehr-pfeil { margin-left: 8px; }
+
+/* ============================================================
+   Monatsbericht (views/berichtDruck.js)
+   Der Bogen liegt nur waehrend des Druckens im Dokument. Am
+   Bildschirm unsichtbar; beim Drucken (body.druck-bericht) ist er
+   das Einzige auf dem Papier. Feste Papierfarben statt der
+   CSS-Variablen – sonst druckte das dunkle Thema weisse Schrift.
+   ============================================================ */
+
+@media screen { #druckbogen { display: none; } }
+
+@media print {
+  @page { size: A4; margin: 10mm 12mm 11mm; }
+
+  /* Chrome und Safari lassen Hintergruende sonst weg. */
+  html, body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  body.druck-bericht { background: #fff !important; }
+  /* Das unsichtbare SVG oben im Dokument traegt das Kompass-Logo samt
+     Farbverlaeufen. Steckt es in display:none, zeichnet der Browser die
+     Verlaeufe nicht – das Logo im Bericht waere leer. Es hat ohnehin die
+     Groesse null. */
+  body.druck-bericht > *:not(#druckbogen):not(svg) { display: none !important; }
+
+  #druckbogen {
+    display: block; color: #16181d; background: #fff;
+    font: 8.2pt/1.3 "Segoe UI", -apple-system, system-ui, sans-serif;
+  }
+  #druckbogen .klein { font-size: 7.6pt; color: #555a62; }
+  #druckbogen .pos { color: #1f6b3a; }
+  #druckbogen .neg { color: #a52121; }
+
+  .db-kopf { display: flex; justify-content: space-between; align-items: flex-end; gap: 12mm;
+    border-bottom: 1.4pt solid #1B2B4A; padding-bottom: 2mm; margin-bottom: 2.5mm; }
+  .db-marke { display: flex; align-items: center; gap: 2mm; font-size: 7.6pt; color: #555a62; letter-spacing: .04em; text-transform: uppercase; }
+  .db-kopf h1 { font-size: 14pt; margin: 1mm 0 0; color: #1B2B4A; }
+  .db-monat { font-size: 11pt; font-weight: 600; color: #8a6d12; }
+  .db-person { text-align: right; font-size: 10pt; font-weight: 600; }
+  .db-hinweis { border: .6pt solid #c79a2a; background: #fbf4e2; padding: 1.6mm 2.5mm; margin-bottom: 3mm; font-size: 8pt; }
+
+  .db-tabelle { width: 100%; border-collapse: collapse; }
+  .db-tabelle thead { display: table-header-group; }
+  .db-tabelle th { text-align: left; font-size: 7.4pt; text-transform: uppercase; letter-spacing: .04em; color: #555a62;
+    border-bottom: .8pt solid #9a9a95; padding: 1mm 1.4mm; }
+  .db-tabelle td { padding: .45mm 1.4mm; border-bottom: .4pt solid #dededa; vertical-align: top; }
+  .db-tabelle tr { page-break-inside: avoid; break-inside: avoid; }
+  .db-tabelle .zahl { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .db-tabelle .nowrap { white-space: nowrap; }
+  .db-tabelle td.klein { max-width: 45mm; }
+  .db-tabelle tr.frei td { background: #f3f3f0; color: #6b6f75; }
+  .db-tabelle tr.luecke td:nth-child(3) { color: #a52121; font-style: italic; }
+  .db-tabelle tr.zaehltnicht td { color: #8b8f95; }
+  .db-tabelle tfoot td { font-weight: 700; border-top: 1pt solid #1B2B4A; border-bottom: 0; padding-top: 1.4mm; }
+
+  .db-kaesten { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4mm; margin-top: 3mm; }
+  .db-kasten, .db-beanstandungen { border: .6pt solid #c8c8c4; border-radius: 1.5mm; padding: 2mm 2.6mm;
+    page-break-inside: avoid; break-inside: avoid; }
+  .db-kasten-titel { font-weight: 700; color: #1B2B4A; margin-bottom: 1mm; }
+  .db-reihe { display: flex; justify-content: space-between; gap: 3mm; padding: .35mm 0; }
+  .db-reihe span:last-child { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .db-reihe.db-summe { font-weight: 700; border-top: .6pt solid #9a9a95; margin-top: .8mm; padding-top: .9mm; }
+  .db-beanstandungen { margin-top: 3mm; font-size: 8pt; }
+
+  .db-unterschriften { display: grid; grid-template-columns: 1fr 1fr; gap: 14mm; margin-top: 7mm;
+    page-break-inside: avoid; break-inside: avoid; }
+  .db-linie { border-bottom: .6pt solid #16181d; height: 8mm; margin-bottom: 1mm; }
+  .db-fuss { margin-top: 3mm; font-size: 7pt; color: #6b6f75; }
+}

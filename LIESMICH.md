@@ -237,6 +237,28 @@ erreicht ist.
   betrachtet, sieht die Stempeluhr nicht.
 - Es zählt die Uhr des Geräts. Geht sie falsch, sind die Zeiten falsch.
 
+### Monatsbericht als PDF
+
+In der **Erfassung** öffnet *Monatsbericht (PDF)* den Druckdialog für den gerade
+gezeigten Monat. Dort *Als PDF speichern* wählen, oder direkt drucken. Am iPhone
+über *Teilen → Drucken* und im Druckvorschaubild erneut *Teilen*. Der Dateiname ist
+z. B. `Monatsbericht 2026-10 Max Mustermann`.
+
+Auf einer A4-Seite stehen:
+- jeder Tag des Monats mit Art, Abschnitten, Pause, Ist, Soll, Saldo, Projekt und Notiz,
+  darunter die Monatssumme
+- **Stundenkonto:** Stand Ende Vormonat (bzw. Anfangsbestand), Saldo des Monats, Stand
+  Monatsende
+- **Urlaub** des Jahres: Anspruch, genommen bis Monatsende, danach geplant, verbleibend
+- Urlaubs-, Krankheits- und nicht erfasste Tage
+- **Hinweise** zu Tagen mit Beanstandung, etwa zu kurzer Pause
+- zwei Unterschriftszeilen (Mitarbeiter/in, Arbeitgeber)
+
+Läuft der Monat noch, rechnet der Bericht bis heute und sagt das oben ausdrücklich.
+Gedruckt wird ein eigener Bogen, nicht die Bildschirmansicht: Am Bildschirm ist er
+unsichtbar, nach dem Druck verschwindet er wieder. Im Team druckt die Verwaltung so
+auch den Bericht eines Mitarbeiters, den sie gerade betrachtet.
+
 ### Tagesarten
 
 | Art | Wirkung aufs Stundenkonto | Urlaub |
@@ -544,6 +566,8 @@ js/sitzung.js        Angemeldetes Konto, betrachtetes Konto, Admin-Umschalter
 js/stammdaten.js     Kunden und Projekte: Team vom Server, Einzelplatz aus der eigenen Datei
 js/zeit.js           Uhrzeiten, Abschnitte, Pausen, gesetzliche Grenzen
 js/stempeluhr.js     Kommen, Pause, Gehen, Projektwechsel (rein, ohne Oberfläche)
+js/monatsbericht.js  Inhalt des Monatsberichts: Tage, Konto, Urlaub (rein, ohne Oberfläche)
+js/views/berichtDruck.js  setzt den Bericht als Druckbogen und öffnet den Druckdialog
 js/kalender.js       Datumsrechnung, Kalenderwochen, Feiertage je Bundesland
 js/saldo.js          Stunden- und Urlaubskonto
 js/projekte.js       Aggregation gebuchter Stunden nach Projekt, Kunde, Mitarbeiter
