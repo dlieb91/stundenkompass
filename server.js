@@ -37,16 +37,29 @@ const MIME = {
   '.jpeg': 'image/jpeg',
   '.webp': 'image/webp',
   '.ico': 'image/x-icon',
+  '.webmanifest': 'application/manifest+json',
   '.woff2': 'font/woff2',
 };
+
+/* Ausgeliefert wird nur, was der Browser fuer die App braucht. Der Ordner
+   enthaelt daneben daten/ mit allen Datensaetzen und den Passwort-Hashes
+   der Konten – ohne diese Liste haette jeder im Netz sie mit einem
+   einzigen GET abholen koennen, ganz ohne Anmeldung. */
+const OEFFENTLICH_DATEIEN = new Set(['/index.html', '/manifest.webmanifest', '/sw.js']);
+const OEFFENTLICH_ORDNER = ['/css/', '/js/', '/bilder/'];
+
+function istOeffentlich(urlPath) {
+  return OEFFENTLICH_DATEIEN.has(urlPath) || OEFFENTLICH_ORDNER.some((o) => urlPath.startsWith(o));
+}
 
 function statischeDatei(req, res, urlPath) {
   if (urlPath === '/') urlPath = '/index.html';
 
   const filePath = path.join(ROOT, urlPath);
-  // Verzeichniswechsel nach oben unterbinden
-  if (!filePath.startsWith(ROOT)) {
-    res.writeHead(403).end('Forbidden');
+  // Verzeichniswechsel nach oben unterbinden, und nichts ausser Programmdateien
+  if (!filePath.startsWith(ROOT + path.sep) || !istOeffentlich(urlPath) || urlPath.includes('..')) {
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('Nicht gefunden: ' + urlPath);
     return;
   }
 
