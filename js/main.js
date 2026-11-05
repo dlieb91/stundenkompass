@@ -42,11 +42,17 @@ import { stammdaten as stammdatenAnsicht } from './views/stammdaten.js';
 import { stammdatenLaden } from './stammdaten.js';
 import { gesamtSaldo, erfassungsBeginn } from './saldo.js';
 import { heuteISO } from './kalender.js';
+import { heute as heuteAnsicht } from './views/heute.js';
+import { mehr, mehrAnmelden } from './views/mehr.js';
+import { handyAnsicht, beiHandyWechsel } from './ansicht.js';
+import { kartenListe } from './felder.js';
 
 /* ---------- Ansichten ---------- */
 
 /* 24x24-Pfade ohne fill; stroke setzt navAufbauen(). */
 const ICONS = {
+  heute: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 1.5M9 2h6M12 2v3"/>',
+  mehr: '<path d="M4 7h16M4 12h16M4 17h16"/>',
   dashboard: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
   erfassung: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18M8 14h3M8 17h6"/>',
   vorgaben: '<path d="M4 6h16M4 12h16M4 18h9"/><circle cx="9" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="7" cy="18" r="2"/>',
@@ -64,7 +70,8 @@ const ICONS = {
    titel darf eine Funktion sein, wenn er von den Daten abhaengt. */
 const ANSICHTEN = {
   team: { titel: 'Team', view: team },
-  dashboard: { titel: 'Dashboard', view: dashboard },
+  // Am Handy heisst es wie sein Reiter unten.
+  dashboard: { titel: () => (handyAnsicht() ? 'Übersicht' : 'Dashboard'), navTitel: 'Dashboard', view: dashboard },
   erfassung: {
     titel: 'Arbeitszeiten erfassen', navTitel: 'Erfassung', view: erfassung,
     // Das Abzeichen zeigt die Arbeitstage ohne Eintrag – die einzige Zahl,
@@ -76,7 +83,19 @@ const ANSICHTEN = {
   stammdaten: { titel: 'Stammdaten', navTitel: 'Kunden & Projekte', view: stammdatenAnsicht },
   konten: { titel: 'Konten', view: konten },
   einstellungen: { titel: 'Einstellungen', view: einstellungen },
+  // Nur am Handy – dort ersetzen sie zusammen mit der Leiste unten die Seitenleiste.
+  heute: { titel: 'Heute', view: heuteAnsicht },
+  mehr: { titel: 'Mehr', view: mehr },
 };
+
+/* Leiste unten am Handy. Alles, was hier nicht steht, liegt unter „Mehr". */
+const TABS = [
+  { key: 'heute', titel: 'Heute' },
+  { key: 'erfassung', titel: 'Erfassung' },
+  { key: 'dashboard', titel: 'Übersicht', icon: '<path d="M21 12a9 9 0 1 1-9-9v9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/>' },
+  { key: 'mehr', titel: 'Mehr' },
+];
+const TAB_KEYS = TABS.map((t) => t.key);
 
 /* Reihenfolge in der Seitenleiste, je Rolle – 'einstellungen' wird unten
    abgesetzt (siehe navAufbauen). Team, Auswertung, Stammdaten und Konten
@@ -96,6 +115,11 @@ const reihenfolge = () => {
   if (istEinzel()) return REIHENFOLGE_EINZEL;
   return istAdmin() ? REIHENFOLGE_ADMIN : REIHENFOLGE_MITARBEITER;
 };
+
+/* Was aufgerufen werden darf, und wo man landet. Am Handy kommen „Heute"
+   und „Mehr" dazu, und „Heute" ist der Start. */
+const erlaubteRouten = () => (handyAnsicht() ? ['heute', 'mehr', ...reihenfolge()] : reihenfolge());
+const startRoute = () => (handyAnsicht() ? 'heute' : reihenfolge()[0]);
 
 /* ---------- Design ---------- */
 
@@ -618,6 +642,17 @@ function appStarten() {
     }
 
     window.addEventListener('hashchange', routen);
+
+    // Handy gedreht oder Fenster schmaler gezogen: andere Anordnung, neu zeichnen.
+    beiHandyWechsel(() => { handyKlasse(); routen(); });
+    listenBeobachten();
+    mehrAnmelden(
+      () => reihenfolge().filter((k) => !TAB_KEYS.includes(k)).map((k) => ({
+        key: k, titel: ANSICHTEN[k].navTitel || ANSICHTEN[k].titel, icon: ICONS[k],
+        zaehler: ANSICHTEN[k].zaehler && state.daten ? ANSICHTEN[k].zaehler(state.daten) : 0,
+      })),
+      () => themaSetzen(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'),
+    );
     window.addEventListener('beforeunload', (e) => {
       if (speicher.status === 'dirty' || speicher.status === 'saving') {
         sofortSpeichern();
@@ -633,7 +668,9 @@ function appStarten() {
   $('#startup').hidden = true;
   $('#app').hidden = false;
 
+  handyKlasse();
   navAufbauen();
+  tabsAufbauen();
   mitarbeiterSwitchAufbauen();
   chromeAktualisieren();
   routen();
@@ -650,6 +687,41 @@ function navAufbauen() {
       cfg.zaehler ? el('span.nav-badge', { dataset: { badge: key } }) : null,
     ]));
   }
+}
+
+function handyKlasse() {
+  document.body.classList.toggle('handy', handyAnsicht());
+}
+
+/** Leiste unten – nur am Handy sichtbar (CSS), aber immer aufgebaut. */
+function tabsAufbauen() {
+  const leiste = leeren($('#tabbar'));
+  for (const t of TABS) {
+    const cfg = ANSICHTEN[t.key];
+    leiste.append(el('a.tab', { href: '#/' + t.key, dataset: { key: t.key } }, [
+      el('span', { html: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${t.icon || ICONS[t.key]}</svg>`, style: 'display:flex' }),
+      el('span', { text: t.titel }),
+      cfg?.zaehler ? el('span.tab-badge', { dataset: { badge: t.key } }) : null,
+    ]));
+  }
+}
+
+/**
+ * Haelt die Spaltenbeschriftung fuer die Kartendarstellung der Tabellen
+ * aktuell (felder.js: kartenListe). Viele Karten zeichnen sich selbst neu,
+ * ohne dass der Router davon erfaehrt – die Beobachtung faengt das ab.
+ * Nur childList: kartenListe() setzt selbst Attribute und wuerde sich sonst
+ * endlos wieder ausloesen.
+ */
+function listenBeobachten() {
+  const ziel = $('#view');
+  if (!ziel || typeof MutationObserver !== 'function') return;
+  let geplant = false;
+  new MutationObserver(() => {
+    if (geplant) return;
+    geplant = true;
+    requestAnimationFrame(() => { geplant = false; kartenListe(ziel); });
+  }).observe(ziel, { childList: true, subtree: true });
 }
 
 /** Nur fuer den Admin gefuellt: Umschalter zwischen den Mitarbeitern in der Kopfzeile. */
@@ -697,7 +769,7 @@ function chromeAktualisieren() {
   $('#folderName').textContent = istEinzel() ? (speicher.ablageName || 'Ablage') : (sitzung.konto?.name || 'Konto');
 
   // Der Titel kann von den Daten abhaengen, deshalb hier erneut setzen
-  const key = (location.hash.replace(/^#\//, '') || reihenfolge()[0]).split('?')[0];
+  const key = (location.hash.replace(/^#\//, '') || startRoute()).split('?')[0];
   const cfg = ANSICHTEN[key];
   if (cfg) $('#viewTitle').textContent = typeof cfg.titel === 'function' ? cfg.titel() : cfg.titel;
 
@@ -705,9 +777,9 @@ function chromeAktualisieren() {
   for (const k of reihenfolge()) {
     const c = ANSICHTEN[k];
     if (!c.zaehler) continue;
-    const badge = document.querySelector(`[data-badge="${k}"]`);
-    if (badge) {
-      const n = c.zaehler(d);
+    // Seitenleiste und Leiste unten tragen dasselbe Abzeichen.
+    const n = c.zaehler(d);
+    for (const badge of document.querySelectorAll(`[data-badge="${k}"]`)) {
       badge.textContent = n > 0 ? String(n) : '';
     }
   }
@@ -734,13 +806,18 @@ function statusAnzeigen(status, detail) {
 }
 
 function routen() {
-  const erlaubt = reihenfolge();
-  const angefragt = (location.hash.replace(/^#\//, '') || erlaubt[0]).split('?')[0];
-  const key = erlaubt.includes(angefragt) ? angefragt : erlaubt[0];
+  const erlaubt = erlaubteRouten();
+  const angefragt = (location.hash.replace(/^#\//, '') || startRoute()).split('?')[0];
+  const key = erlaubt.includes(angefragt) ? angefragt : startRoute();
   const cfg = ANSICHTEN[key];
 
   for (const a of document.querySelectorAll('.nav-item')) {
     a.classList.toggle('active', a.dataset.key === (cfg.navKey || key));
+  }
+  // Unten: was nicht selbst in der Leiste steht, gehoert zu „Mehr".
+  const tabKey = TAB_KEYS.includes(cfg.navKey || key) ? (cfg.navKey || key) : 'mehr';
+  for (const a of document.querySelectorAll('#tabbar .tab')) {
+    a.classList.toggle('active', a.dataset.key === tabKey);
   }
   $('#viewTitle').textContent = typeof cfg.titel === 'function' ? cfg.titel() : cfg.titel;
 

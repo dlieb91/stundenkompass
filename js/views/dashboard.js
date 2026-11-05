@@ -16,7 +16,7 @@ import {
   gesamtSaldo, jahresBilanz, monatsBilanz, urlaubsBilanz, erfassungsBeginn,
 } from '../saldo.js';
 import { stundenText } from '../zeit.js';
-import { gewaehltesJahr, setJahr, setMonat } from '../ansicht.js';
+import { gewaehltesJahr, setJahr, setMonat, handyAnsicht } from '../ansicht.js';
 import { darfVorgabenBearbeiten } from '../sitzung.js';
 import { stempelKarte, stempelnErlaubt } from './stempelkarte.js';
 
@@ -31,9 +31,9 @@ export const dashboard = {
     const heute = heuteISO();
     const beginn = erfassungsBeginn(daten);
 
-    // Die Stempeluhr steht ganz oben: Am Handy ist sie der Grund, die App zu
-    // oeffnen. Auch ohne Erfassungsbeginn – gestempelt werden kann immer.
-    if (stempelnErlaubt()) inner.append(stempelKarte(neu));
+    // Die Stempeluhr steht ganz oben – auch ohne Erfassungsbeginn, gestempelt
+    // werden kann immer. Am Handy hat sie mit „Heute" eine eigene Ansicht.
+    if (stempelnErlaubt() && !handyAnsicht()) inner.append(stempelKarte(neu));
 
     if (!beginn) {
       // Wer die Vorgaben nicht bearbeiten darf, bekommt keine Einrichtungs-
@@ -312,7 +312,9 @@ function jahresKarte(jahr, jb, neu) {
       ]),
     ]),
     el('div', { style: 'overflow-x:auto' }, [
-      el('table.data.kompakt', {}, [
+      // .zweispaltig: am Handy stehen die Werte einer Monatskarte nebeneinander –
+      // zwoelf Karten mit je sieben Zeilen waeren sonst eine lange Rolle.
+      el('table.data.kompakt.zweispaltig', {}, [
         el('thead', {}, [el('tr', {}, [
           el('th', { text: 'Monat' }),
           el('th', { text: 'Soll', style: 'text-align:right' }),

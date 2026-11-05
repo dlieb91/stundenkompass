@@ -78,6 +78,25 @@ denselben Daten geändert hat – übernimmt die App automatisch deren Stand und
 einen Hinweis. Die eigene letzte, noch nicht gespeicherte Eingabe geht dabei verloren,
 die Korrektur der Verwaltung nicht.
 
+## Am Handy
+
+Unter 700 px Breite, also beim Handy hochkant, ordnet sich die App anders an. Am iPad
+hochkant (820 px), quer und am PC bleibt alles wie unten beschrieben. Dreht man das
+Handy, wechselt die Ansicht mit.
+
+- **Leiste unten statt Seitenleiste:** **Heute** (Stempeluhr, Stundenkonto, Monat,
+  Resturlaub), **Erfassung**, **Übersicht** (das Dashboard) und **Mehr** (Vorgaben,
+  Auswertung, Kunden & Projekte, Einstellungen, im Team auch Team und Konten,
+  Hell/Dunkel). Das Abzeichen an *Erfassung* zählt die Arbeitstage ohne Eintrag.
+- **Erfassung als Tagesliste:** eine Zeile pro Tag mit Zeiten, Pause, Projekt, Ist und
+  Saldo. Lücken sind rot, heute ist hervorgehoben. Ein Tipp auf einen Tag öffnet von
+  unten ein **Blatt** mit großen Feldern: Tagesart, Abschnitte, zusätzliche Pause, Notiz,
+  *Vorgabe übernehmen*. Ist und Pause rechnen beim Tippen mit. *Fertig* schließt das Blatt;
+  gespeichert wird wie überall sofort.
+- **Tabellen werden zu Karten**, jeder Wert mit seiner Bezeichnung davor. Leere Werte
+  („–") entfallen in der Karte.
+- **Hinweistexte** sind auf zwei Zeilen gekürzt, ein Tipp klappt sie auf.
+
 ## Aufbau
 
 **Team** *(nur Verwaltung)* – alle Mitarbeiter nebeneinander: Stundenkonto, Saldo des
@@ -531,6 +550,10 @@ js/projekte.js       Aggregation gebuchter Stunden nach Projekt, Kunde, Mitarbei
 js/store.js          Datenmodell, Änderungsverwaltung, Migration
 js/ansicht.js         gewählter Monat und gewähltes Jahr (im Browser, nicht in der Datei)
 js/views/stempelkarte.js  die Stempeluhr oben im Dashboard
+js/views/heute.js        Handy: Startansicht mit Stempeluhr und Kontostand
+js/views/mehr.js         Handy: alles, was nicht in der Leiste unten steht
+js/views/erfassungHandy.js  Handy: Tagesliste und Bearbeiten-Blatt
+js/views/tagzugriff.js   Schreiben in einen Tag – gemeinsam für Tabelle und Blatt
 js/views/            Team, Dashboard, Erfassung, Vorgaben, Auswertung, Stammdaten,
                      Konten, Einstellungen
 ```

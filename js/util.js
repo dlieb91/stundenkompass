@@ -135,6 +135,45 @@ export function modal({ titel, beschreibung, inhalt, buttons = [], breite }) {
   });
 }
 
+/**
+ * Blatt, das von unten hereinfaehrt – das Gegenstueck zum Modal fuer das
+ * Handy. aufbauen(body, neuZeichnen) fuellt den Inhalt und darf sich ueber
+ * neuZeichnen() selbst erneuern, etwa nachdem ein Abschnitt hinzukam.
+ * Liefert ein Promise, das beim Schliessen aufloest.
+ */
+export function blatt({ titel, sub, aufbauen, fertigText = 'Fertig' }) {
+  return new Promise((resolve) => {
+    const root = document.getElementById('modalRoot');
+    const body = el('div.blatt-body');
+    const panel = el('div.blatt', { role: 'dialog', 'aria-label': titel }, [
+      el('div.blatt-griff'),
+      el('div.blatt-kopf', {}, [el('h2', { text: titel }), sub ? el('div.sub', { text: sub }) : null]),
+      body,
+    ]);
+    const hintergrund = el('div.blatt-hintergrund', {}, [panel]);
+
+    const schliessen = () => {
+      // Ein offenes Feld zuerst verlassen – sonst ginge seine Aenderung,
+      // die erst beim „change" ankommt, mit dem Blatt verloren.
+      if (document.activeElement && panel.contains(document.activeElement)) document.activeElement.blur();
+      hintergrund.remove();
+      document.removeEventListener('keydown', onKey);
+      resolve();
+    };
+    const onKey = (e) => { if (e.key === 'Escape') schliessen(); };
+
+    const neuZeichnen = () => { leeren(body); aufbauen(body, neuZeichnen); };
+    neuZeichnen();
+    panel.append(el('div.blatt-fuss', {}, [
+      el('button.btn.btn-primary.btn-lg', { type: 'button', onclick: schliessen }, [fertigText]),
+    ]));
+
+    hintergrund.addEventListener('mousedown', (e) => { if (e.target === hintergrund) schliessen(); });
+    document.addEventListener('keydown', onKey);
+    root.append(hintergrund);
+  });
+}
+
 export function bestaetigen(titel, beschreibung, { okText = 'Ja, fortfahren', gefahr = false } = {}) {
   return modal({
     titel, beschreibung,

@@ -307,8 +307,40 @@ export function abschnitt(titel, sub, inhalt, hinweisHtml) {
   ]);
 }
 
+/**
+ * Tabellen werden am Handy zu Karten (siehe CSS unter body.handy). Damit
+ * jeder Wert dort seine Bezeichnung behaelt, bekommt jede Zelle die
+ * Spaltenueberschrift als data-spalte mit. Die Erfassungstabelle ist
+ * ausgenommen – sie wird am Handy gar nicht erst gebaut.
+ */
+export function kartenListe(wurzel = document) {
+  for (const tabelle of wurzel.querySelectorAll('table.data:not(.erfassung)')) {
+    const kopf = [...tabelle.querySelectorAll('thead th')].map((th) => th.textContent.trim());
+    if (!kopf.length) continue;
+    for (const zeile of tabelle.querySelectorAll('tbody tr, tfoot tr')) {
+      const zellen = [...zeile.children];
+      // Leermeldungen und Trennzeilen ueber die ganze Breite bleiben, wie sie sind.
+      if (zellen.length === 1 && zellen[0].colSpan > 1) continue;
+      let spalte = 0;
+      for (const zelle of zellen) {
+        if (kopf[spalte] && !zelle.dataset.spalte) zelle.dataset.spalte = kopf[spalte];
+        // „–" heisst „nichts" – in der Karte ist eine Zeile dafuer nur Rauschen.
+        const text = zelle.textContent.trim();
+        const leer = spalte > 0 && !zelle.querySelector('input, select, button') && (text === '' || text === '–');
+        zelle.toggleAttribute('data-leer', leer);
+        spalte += zelle.colSpan || 1;
+      }
+    }
+  }
+}
+
+/* Hinweise sind am Handy auf zwei Zeilen gekuerzt; ein Tipp klappt sie auf.
+   Am breiten Bildschirm wirkt die Klasse nicht. */
 export function hinweis(html) {
-  return el('div.note', { style: 'margin-bottom:16px' }, [
+  return el('div.note', {
+    style: 'margin-bottom:16px',
+    onclick: (e) => { if (!e.target.closest('a, button')) e.currentTarget.classList.toggle('offen'); },
+  }, [
     el('div.note-icon', { html: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg>' }),
     el('div', { html }),
   ]);

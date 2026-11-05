@@ -4,18 +4,21 @@
    man die Luecken, und nur so kann man einen Tag nachtragen, ohne ihn vorher
    anlegen zu muessen.
 
-   Die Eingabefelder schreiben nicht unmittelbar in einen Tageseintrag, sondern
-   ueber die Zugriffsobjekte weiter unten. Der Grund: einen Tag, den man nur
-   angeklickt hat, soll die Datei nicht behalten. Erst wenn wirklich etwas
-   darinsteht, entsteht ein Eintrag – und sobald er wieder leer ist,
-   verschwindet er.
+   Die Eingabefelder schreiben ueber die Zugriffsobjekte aus tagzugriff.js –
+   ein nur angeklickter Tag hinterlaesst so keinen leeren Eintrag.
+
+   Am Handy steht statt der Tabelle eine Tagesliste (erfassungHandy.js);
+   Kopf, Summen, Luecken fuellen und Urlaub planen sind dieselben.
 */
 
 import { el, leeren, num, datum, modal, bestaetigen, toast } from '../util.js';
 import { tabellenZeit, tabellenZahl, tabellenText, tabellenAuswahl, hinweis } from '../felder.js';
+import { state, aendern, tagHolen, tagLesen, vorgabeUebernehmen } from '../store.js';
 import {
-  state, aendern, tagHolen, tagLesen, tagAufraeumen, vorgabeUebernehmen,
-} from '../store.js';
+  tagZugriff, intervallZugriff, abschnittAnhaengen, abschnittEntfernen, standardArt,
+} from './tagzugriff.js';
+import { tagesListe } from './erfassungHandy.js';
+import { handyAnsicht } from '../ansicht.js';
 import {
   WOCHENTAGE, heuteISO, monatsBezeichnung, kwNummer, istWochenende, wochentag,
 } from '../kalender.js';
@@ -24,7 +27,7 @@ import {
 } from '../saldo.js';
 import { stundenText, WARNTEXTE } from '../zeit.js';
 import { gewaehlterMonat, setMonat, monatVerschieben } from '../ansicht.js';
-import { projektpflicht, projekteFuerAuswahl, projektGenutzt } from '../stammdaten.js';
+import { projektpflicht, projekteFuerAuswahl } from '../stammdaten.js';
 
 export const erfassung = {
   render(container) {
@@ -39,7 +42,11 @@ export const erfassung = {
 
     inner.append(werkzeugleiste(jahr, monat, bilanz, neu));
     inner.append(summenLeiste(bilanz));
-    inner.append(tagesTabelle(jahr, monat, bilanz, heute, neu));
+    // Am Handy eine Zeile je Tag mit Bearbeiten-Blatt – die Tabelle ist dort
+    // mehr als doppelt so breit wie der Bildschirm (siehe erfassungHandy.js).
+    inner.append(handyAnsicht()
+      ? tagesListe(jahr, monat, bilanz, heute, neu)
+      : tagesTabelle(jahr, monat, bilanz, heute, neu));
   },
 };
 
@@ -188,49 +195,6 @@ function summenLeiste(b) {
   ]);
 }
 
-/* ---------- Zugriff auf einen Tag ----------
-   Die Felder schreiben ueber diese Objekte, damit ein nur angetippter Tag
-   keinen leeren Eintrag hinterlaesst. */
-
-function tagZugriff(iso, standardArt) {
-  const schreiben = (fn) => { fn(tagHolen(iso)); tagAufraeumen(iso); };
-  return {
-    get art() { return tagLesen(iso)?.art || standardArt; },
-    // Wer die ohnehin geltende Art auswaehlt, hebt die Ausnahme wieder auf –
-    // gespeichert wird nur, was vom Kalender abweicht.
-    set art(w) { schreiben((t) => { t.art = w === standardArt ? null : w; }); },
-    get pauseMin() { return tagLesen(iso)?.pauseMin ?? null; },
-    set pauseMin(w) { schreiben((t) => { t.pauseMin = w; }); },
-    get notiz() { return tagLesen(iso)?.notiz || ''; },
-    set notiz(w) { schreiben((t) => { t.notiz = w; }); },
-  };
-}
-
-function intervallZugriff(iso, index) {
-  const lesen = () => tagLesen(iso)?.intervalle?.[index] || null;
-  const schreiben = (feld, wert) => {
-    const tag = tagHolen(iso);
-    if (!Array.isArray(tag.intervalle)) tag.intervalle = [];
-    while (tag.intervalle.length <= index) tag.intervalle.push({ von: '', bis: '' });
-    tag.intervalle[index][feld] = wert || '';
-
-    const hatZeiten = tag.intervalle.some((iv) => iv.von || iv.bis);
-    // Wer eine Zeit eintraegt, hat gearbeitet – die Tagesart ergibt sich von
-    // selbst und muss nicht zusaetzlich ausgewaehlt werden.
-    if (hatZeiten && !tag.art) tag.art = 'arbeit';
-    if (!hatZeiten && tag.art === 'arbeit') tag.art = null;
-    tagAufraeumen(iso);
-  };
-  return {
-    get von() { return lesen()?.von || ''; },
-    set von(w) { schreiben('von', w); },
-    get bis() { return lesen()?.bis || ''; },
-    set bis(w) { schreiben('bis', w); },
-    get projektId() { return lesen()?.projektId || ''; },
-    set projektId(w) { schreiben('projektId', w); if (w) projektGenutzt(w); },
-  };
-}
-
 /* ---------- Tabelle ---------- */
 
 /** Spalten der Tabelle. Projekt erscheint nur bei eingeschalteter
@@ -320,23 +284,14 @@ function tagesZeile(b, heute, neu, mitProjekt) {
       ? el('button.icon-mini', {
         type: 'button', title: 'Abschnitt entfernen',
         onclick: () => {
-          aendern(() => {
-            const t = tagHolen(iso);
-            t.intervalle.splice(i, 1);
-            tagAufraeumen(iso);
-          });
+          abschnittEntfernen(iso, i);
           neu();
         },
       }, ['×'])
       : el('button.icon-mini.neutral', {
         type: 'button', title: 'Weiteren Abschnitt anhängen',
         onclick: () => {
-          aendern(() => {
-            const t = tagHolen(iso);
-            if (!Array.isArray(t.intervalle)) t.intervalle = [];
-            if (!t.intervalle.length) t.intervalle.push({ von: '', bis: '' });
-            t.intervalle.push({ von: '', bis: '' });
-          });
+          abschnittAnhaengen(iso);
           neu();
         },
       }, ['+']),
@@ -372,12 +327,6 @@ function tagesZeile(b, heute, neu, mitProjekt) {
     el('td', {}, [hinweisZelle(b, neu)]),
     el('td', {}, [tabellenText(zugriff, 'notiz', { platzhalter: b.feiertagName || '', umbauen: neu })]),
   ]);
-}
-
-/** Die Art, die ohne eigenen Eintrag von selbst gilt – siehe tagesBilanz(). */
-function standardArt(b) {
-  if (b.feiertagName) return 'feiertag';
-  return b.sollMin === 0 ? 'frei' : 'arbeit';
 }
 
 /**

@@ -45,3 +45,21 @@ export function gewaehltesJahr() {
 export function setJahr(jahr) {
   localStorage.setItem(SCHLUESSEL_JAHR, String(jahr));
 }
+
+/* ---------- Handyansicht ----------
+   Unter 700 px Breite – ein Handy hochkant – zeigt die App eine eigene
+   Anordnung: Leiste unten statt Seitenleiste, Erfassung als Tagesliste mit
+   Bearbeiten-Blatt, Tabellen als Karten. Das iPad hochkant (820 px) und
+   alles Breitere behaelt die gewohnte Ansicht.
+
+   Allein mit CSS geht das nicht: Die Erfassung baut am Handy andere
+   Elemente. Deshalb fragen Ansichten hier nach und main.js zeichnet neu,
+   sobald sich die Breite ueber die Grenze bewegt (Handy gedreht). */
+
+const HANDY = typeof matchMedia === 'function' ? matchMedia('(max-width: 700px)') : null;
+
+export const handyAnsicht = () => !!HANDY?.matches;
+
+export function beiHandyWechsel(fn) {
+  HANDY?.addEventListener('change', () => fn(handyAnsicht()));
+}
