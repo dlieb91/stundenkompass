@@ -505,10 +505,20 @@ async function verbinden(auswahl) {
     abgleichAnbinden();
   } catch (e) {
     console.error(e);
-    startFehler('Daten konnten nicht geladen werden',
-      auswahl.kennung === 'dropbox' ? dbx.fehlerKlartext(e).text : (e.message || String(e)));
+    const klar = auswahl.kennung === 'dropbox' ? dbx.fehlerKlartext(e) : { text: e.message || String(e) };
+    startFehler('Daten konnten nicht geladen werden', klar.text);
+    if (klar.neuAnmelden) {
+      /* Bei einem Zugangsproblem – allen voran fehlenden Rechten – nuetzt ein
+         neuer Versuch mit demselben Zugang nichts: Rechte, die bei Dropbox
+         erst nachtraeglich gesetzt wurden, gelten nur fuer eine *neue*
+         Anmeldung. Also den alten Zugang verwerfen und frisch anmelden. */
+      startBereich().append(el('button.btn.btn-primary', {
+        type: 'button', style: 'margin-top:12px',
+        onclick: async () => { await dbx.abmelden(); await dropboxAnmelden(); },
+      }, ['Bei Dropbox neu anmelden']));
+    }
     startBereich().append(el('button.btn', {
-      type: 'button', style: 'margin-top:12px', onclick: () => startAuswahlZeigen(null),
+      type: 'button', style: 'margin-top:8px', onclick: () => startAuswahlZeigen(null),
     }, ['Zurück']));
   }
 }
