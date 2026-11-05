@@ -19,6 +19,7 @@ import { betrieb, betriebErmitteln, istEinzel } from './betrieb.js';
 import { aufApple, speicherWarnung } from './speicher/lokal.js';
 import * as dbx from './speicher/dropboxApi.js';
 import { dateiFeld } from './uebernahme.js';
+import { kvDel } from './db.js';
 import {
   anbinden as abgleichAnbinden, anzeigeAnmelden, dropboxAnmelden,
 } from './abgleich.js';
@@ -414,6 +415,7 @@ function startAuswahlZeigen(gemerkt) {
     body.append(el('button.btn.btn-ghost', {
       type: 'button', onclick: () => startAuswahlZeigen(null),
     }, ['Andere Ablage wählen']));
+    andereDropboxAppAnbieten(body);
     return;
   }
 
@@ -435,9 +437,23 @@ function startAuswahlZeigen(gemerkt) {
     }));
   }
 
+  andereDropboxAppAnbieten(body);
+
   /* Die Warnung lohnt hier nur, wo sie wirklich draengt – auf iPhone und iPad. */
   const warnung = aufApple() ? speicherWarnung() : null;
   if (warnung) body.append(el('div.startup-hint', { html: warnung }));
+}
+
+/* Besteht schon ein Dropbox-Zugang, geht „Mit Dropbox verbinden" bzw.
+   „Öffnen" direkt damit los. Wer eine andere Dropbox-App nehmen oder sich
+   neu anmelden will, braucht einen eigenen Weg zur Abfrage des App keys. */
+function andereDropboxAppAnbieten(body) {
+  dbx.angemeldet().then((ja) => {
+    if (!ja || !body.isConnected) return;
+    body.append(el('button.btn.btn-ghost', {
+      type: 'button', style: 'font-size:12px', onclick: () => dropboxNeuAnmelden(),
+    }, ['Andere Dropbox-App verwenden …']));
+  });
 }
 
 async function ordnerDialog() {
@@ -454,6 +470,20 @@ async function ordnerDialog() {
 async function lokalStarten() {
   const auswahl = await ablageWaehlen('lokal');
   await verbinden({ ...auswahl, name: 'Dieses Gerät' });
+}
+
+/**
+ * Gespeicherten Zugang verwerfen und neu anmelden. Die Abfrage des App keys
+ * erscheint dabei vorausgefuellt – wer zu einer anderen Dropbox-App wechseln
+ * will, traegt dort deren Key ein. Der Zwischenspeicher dieses Geraets
+ * bleibt; nur die Merker des Abgleichs werden geloescht, weil sie zur alten
+ * App gehoeren und sonst einen Scheinkonflikt erzeugten.
+ */
+async function dropboxNeuAnmelden() {
+  await dbx.abmelden();
+  await kvDel('dropboxRev');
+  await kvDel('dropboxStand');
+  await dropboxAnmelden();
 }
 
 async function dropboxStarten() {
@@ -507,14 +537,16 @@ async function verbinden(auswahl) {
     console.error(e);
     const klar = auswahl.kennung === 'dropbox' ? dbx.fehlerKlartext(e) : { text: e.message || String(e) };
     startFehler('Daten konnten nicht geladen werden', klar.text);
-    if (klar.neuAnmelden) {
-      /* Bei einem Zugangsproblem – allen voran fehlenden Rechten – nuetzt ein
-         neuer Versuch mit demselben Zugang nichts: Rechte, die bei Dropbox
+    if (auswahl.kennung === 'dropbox') {
+      /* Bei jedem Dropbox-Fehler den Weg zu einer frischen Anmeldung
+         anbieten – auch mit anderem App key. Ein neuer Versuch mit demselben
+         Zugang nuetzt bei Zugangsproblemen nichts: Rechte, die bei Dropbox
          erst nachtraeglich gesetzt wurden, gelten nur fuer eine *neue*
-         Anmeldung. Also den alten Zugang verwerfen und frisch anmelden. */
-      startBereich().append(el('button.btn.btn-primary', {
+         Anmeldung. Und ohne diesen Knopf saesse man hier fest, denn der
+         Weg ueber die Einstellungen setzt eine geladene App voraus. */
+      startBereich().append(el('button.btn' + (klar.neuAnmelden ? '.btn-primary' : ''), {
         type: 'button', style: 'margin-top:12px',
-        onclick: async () => { await dbx.abmelden(); await dropboxAnmelden(); },
+        onclick: () => dropboxNeuAnmelden(),
       }, ['Bei Dropbox neu anmelden']));
     }
     startBereich().append(el('button.btn', {
