@@ -123,7 +123,7 @@ function tagesZeile(b, heute, neu) {
 
 /* ---------- Bearbeiten-Blatt ---------- */
 
-async function tagBlatt(iso, neu) {
+export async function tagBlatt(iso, neu) {
   const heute = heuteISO();
   const b0 = tagesBilanz(iso, state.daten, { heute });
   const sub = [

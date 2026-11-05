@@ -85,7 +85,8 @@ hochkant (820 px), quer und am PC bleibt alles wie unten beschrieben. Dreht man 
 Handy, wechselt die Ansicht mit.
 
 - **Leiste unten statt Seitenleiste:** **Heute** (Stempeluhr, Stundenkonto, Monat,
-  Resturlaub), **Erfassung**, **Übersicht** (das Dashboard) und **Mehr** (Vorgaben,
+  Resturlaub), **Erfassung**, **Kalender** (nur Tagessicht, seitlich wischen blättert),
+  **Übersicht** (das Dashboard) und **Mehr** (Vorgaben,
   Auswertung, Kunden & Projekte, Einstellungen, im Team auch Team und Konten,
   Hell/Dunkel). Das Abzeichen an *Erfassung* zählt die Arbeitstage ohne Eintrag.
 - **Erfassung als Tagesliste:** eine Zeile pro Tag mit Zeiten, Pause, Projekt, Ist und
@@ -258,6 +259,32 @@ Läuft der Monat noch, rechnet der Bericht bis heute und sagt das oben ausdrück
 Gedruckt wird ein eigener Bogen, nicht die Bildschirmansicht: Am Bildschirm ist er
 unsichtbar, nach dem Druck verschwindet er wieder. Im Team druckt die Verwaltung so
 auch den Bericht eines Mitarbeiters, den sie gerade betrachtet.
+
+### Kalender
+
+Eigener Reiter **Kalender**: wann gearbeitet wurde, als Zeitachse wie in einem
+Terminkalender. Am PC und iPad wahlweise **Woche** (Mo–So) oder **Tag**, am Handy nur
+der Tag. Ein Klick auf das Datum im Wochenkopf zeigt den Tag allein, ein Klick in eine
+Tagesspalte öffnet das Bearbeiten-Blatt. So lässt sich auch aus dem Kalender nachtragen.
+
+| Farbe | Bedeutung |
+|---|---|
+| blau | **Arbeit**, jeder erfasste Abschnitt so, wie er eingetragen ist. Lücken zwischen Abschnitten bleiben frei. Mit Projekt steht das Projekt als Titel da. |
+| lachsrot | **Krank** |
+| gelb | **Urlaub**, beim halben Urlaubstag die halbe Sollzeit vor oder nach der Arbeit |
+| gestreift | **Pause** zwischen den Vorgabezeiten |
+
+Krank und Urlaub ohne eigene Zeiten erscheinen mit den **Vorgabezeiten** des geltenden
+Zeitmodells (z. B. 08:00–17:00), dazu der Hinweis „Vorgabezeit". Die Vorgabepause steht
+als eigener Block ab 12:00, wenn sie dort hineinpasst, sonst in der Mitte. Die Vorgabe
+kennt nur die Dauer der Pause, nicht ihre Lage. An Tagen ohne Arbeitspflicht (Wochenende,
+Feiertag) steht Urlaub oder Krank nur oben in der Ganztagszeile. Dort stehen auch
+Feiertage, freie Tage, Freizeitausgleich und Arbeitstage ohne Eintrag („nicht erfasst").
+
+Ein laufender Abschnitt (eingestempelt) reicht bis jetzt, die rote Linie markiert die
+aktuelle Uhrzeit. Ein Abschnitt über Mitternacht wird am Folgetag fortgesetzt. Der
+Kalender zeigt nur an und rechnet nichts Eigenes: Stunden und Saldo kommen wie überall
+aus dem Stundenkonto.
 
 ### Tagesarten
 
@@ -568,6 +595,8 @@ js/zeit.js           Uhrzeiten, Abschnitte, Pausen, gesetzliche Grenzen
 js/stempeluhr.js     Kommen, Pause, Gehen, Projektwechsel (rein, ohne Oberfläche)
 js/monatsbericht.js  Inhalt des Monatsberichts: Tage, Konto, Urlaub (rein, ohne Oberfläche)
 js/views/berichtDruck.js  setzt den Bericht als Druckbogen und öffnet den Druckdialog
+js/kalenderTermine.js  Blöcke eines Tages für den Kalender: Arbeit, Krank/Urlaub mit Vorgabezeiten (rein)
+js/views/kalender.js     Kalender: Woche oder Tag als Zeitachse
 js/kalender.js       Datumsrechnung, Kalenderwochen, Feiertage je Bundesland
 js/saldo.js          Stunden- und Urlaubskonto
 js/projekte.js       Aggregation gebuchter Stunden nach Projekt, Kunde, Mitarbeiter

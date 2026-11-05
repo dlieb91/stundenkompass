@@ -731,7 +731,7 @@ body.handy .view { padding: 12px 10px 24px; }
 body.handy .view-inner { gap: 12px !important; }
 
 body.handy .tabbar {
-  display: grid; grid-template-columns: repeat(4, 1fr);
+  display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
   flex: 0 0 auto;
   background: var(--bg-elevated); border-top: 1px solid var(--border);
   /* Unter dem Home-Balken des iPhones nichts Antippbares. */
@@ -923,6 +923,116 @@ body.handy .summe:nth-child(n+4) { grid-column: span 3; }
 .mehr-pfeil { margin-left: auto; color: var(--text-faint); font-size: 20px; }
 .mehr-eintrag .nav-badge { margin-left: auto; }
 .mehr-eintrag .nav-badge + .mehr-pfeil { margin-left: 8px; }
+
+/* ============================================================
+   Kalender (views/kalender.js)
+   Farben wie in gaengigen Kalendern: Arbeit blau, Urlaub gelb,
+   Krank lachsrot. Die Pause zwischen Vorgabezeiten ist gestreift;
+   Krank/Urlaub-Bloecke tragen den Zusatz „Vorgabezeit".
+   ============================================================ */
+:root, :root[data-theme="dark"] {
+  --kal-arbeit: #1e88e5; --kal-arbeit-text: #fff;
+  --kal-urlaub: #f2b822; --kal-urlaub-text: #2a2205;
+  --kal-krank: #e07067; --kal-krank-text: #fff;
+  --kal-pause: rgba(255, 255, 255, .06); --kal-pause-text: var(--text-faint);
+  --kal-linie: rgba(255, 255, 255, .06);
+  --kal-jetzt: #ef4444;
+}
+:root[data-theme="light"] {
+  --kal-arbeit: #039be5; --kal-arbeit-text: #fff;
+  --kal-urlaub: #f6bf26; --kal-urlaub-text: #3a2e05;
+  --kal-krank: #e67c73; --kal-krank-text: #fff;
+  --kal-pause: rgba(16, 24, 40, .05); --kal-pause-text: var(--text-faint);
+  --kal-linie: #e6e9f0;
+  --kal-jetzt: #dc2626;
+}
+
+.kal-kopf { flex-wrap: wrap; gap: 10px; }
+.kal-nav { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+body.handy .kal-titel { order: -1; flex-basis: 100%; }
+body.handy .kal-kopf { padding: 12px 14px; gap: 8px; }
+body.handy .kal-nav { gap: 8px; }
+/* Waagrechtes Wischen blaettert den Tag (views/kalender.js) – nicht
+   zurueck in der Browsergeschichte. */
+body.handy .kal { touch-action: pan-y; overscroll-behavior-x: contain; }
+.kal-legende { display: flex; gap: 12px; font-size: 12.5px; color: var(--text-dim); }
+.kal-legende span { display: inline-flex; align-items: center; gap: 6px; }
+.kal-farbe { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.kal-farbe.kal-arbeit { background: var(--kal-arbeit); }
+.kal-farbe.kal-krank { background: var(--kal-krank); }
+.kal-farbe.kal-urlaub { background: var(--kal-urlaub); }
+
+.kal { overflow: hidden; }
+.kal-zeile { display: grid; }
+.kal-tagkopf { border-bottom: 1px solid var(--border); }
+.kal-datum {
+  display: grid; justify-items: start; gap: 0; padding: 10px 8px 6px;
+  background: none; border: 0; border-left: 1px solid var(--kal-linie);
+  color: var(--text-dim); cursor: pointer; text-align: left; font: inherit;
+}
+.kal-datum:hover { background: var(--accent-soft); }
+.kal-wt { font-size: 11px; font-weight: 600; letter-spacing: .04em; }
+.kal-nr {
+  font-size: 22px; line-height: 34px; min-width: 34px; height: 34px; border-radius: 50%;
+  color: var(--text); text-align: center; margin-left: -4px; font-variant-numeric: tabular-nums;
+}
+.kal-datum.heute .kal-wt { color: var(--accent); }
+.kal-datum.heute .kal-nr { background: var(--accent); color: var(--accent-text); }
+.kal-ist { font-size: 11.5px; color: var(--text-faint); min-height: 15px; }
+
+.kal-ganztags { border-bottom: 1px solid var(--border); min-height: 8px; }
+.kal-ganztags-zelle { border-left: 1px solid var(--kal-linie); padding: 3px 3px; display: grid; gap: 3px; align-content: start; cursor: pointer; }
+.kal-chip {
+  font-size: 12px; font-weight: 600; padding: 2px 7px; border-radius: 5px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.kal-chip.kal-urlaub { background: var(--kal-urlaub); color: var(--kal-urlaub-text); }
+.kal-chip.kal-krank { background: var(--kal-krank); color: var(--kal-krank-text); }
+.kal-chip.kal-feiertag { background: var(--accent-soft); color: var(--accent); }
+.kal-chip.kal-frei, .kal-chip.kal-ausgleich { background: var(--kal-pause); color: var(--text-dim); }
+.kal-chip.kal-luecke { background: none; color: var(--neg); border: 1px dashed var(--neg); font-weight: 500; }
+
+.kal-koerper { position: relative; padding-top: 8px; padding-bottom: 8px; }
+.kal-achse { position: relative; }
+.kal-uhr {
+  position: absolute; right: 8px; transform: translateY(-50%);
+  font-size: 11.5px; color: var(--text-faint); font-variant-numeric: tabular-nums;
+}
+.kal-spalte {
+  position: relative; border-left: 1px solid var(--kal-linie); cursor: pointer;
+  background-image: linear-gradient(to bottom, var(--kal-linie) 1px, transparent 1px);
+}
+.kal-spalte.heute { background-color: var(--accent-soft); }
+.kal-spalte:hover { background-color: rgba(127, 127, 127, .05); }
+.kal-spalte.heute:hover { background-color: var(--accent-soft); }
+
+.kal-block {
+  position: absolute; overflow: hidden; border-radius: 5px;
+  padding: 3px 7px; font-size: 12px; line-height: 1.3;
+  border-left: 4px solid rgba(0, 0, 0, .18);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .12);
+}
+.kal-block.kal-arbeit { background: var(--kal-arbeit); color: var(--kal-arbeit-text); }
+.kal-block.kal-krank { background: var(--kal-krank); color: var(--kal-krank-text); }
+.kal-block.kal-urlaub { background: var(--kal-urlaub); color: var(--kal-urlaub-text); }
+.kal-block.kal-pause {
+  background: repeating-linear-gradient(135deg, var(--kal-pause) 0 6px, transparent 6px 12px);
+  color: var(--kal-pause-text); border-left-color: var(--border-strong); box-shadow: none;
+  border: 1px dashed var(--border-strong); border-left-width: 4px;
+}
+.kal-block.laeuft { background-image: linear-gradient(to bottom, transparent 70%, rgba(255, 255, 255, .25)); border-bottom: 2px dashed rgba(255, 255, 255, .8); }
+.kal-btitel { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kal-bzeit, .kal-bzusatz { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kal-bzusatz { opacity: .8; font-size: 11px; }
+.kal-block.kurz { padding-top: 1px; padding-bottom: 1px; }
+.kal-block.kurz .kal-btitel { font-size: 11px; }
+
+.kal-jetzt { position: absolute; left: -1px; right: 0; height: 2px; background: var(--kal-jetzt); z-index: 2; pointer-events: none; }
+.kal-jetzt::before { content: ""; position: absolute; left: -5px; top: -4px; width: 10px; height: 10px; border-radius: 50%; background: var(--kal-jetzt); }
+
+.kal-tagsicht .kal-block { font-size: 13px; padding: 5px 10px; }
+.kal-tagsicht .kal-datum { cursor: pointer; }
+body.handy .kal-legende { gap: 10px; font-size: 12px; }
 
 /* ============================================================
    Monatsbericht (views/berichtDruck.js)

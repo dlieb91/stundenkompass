@@ -34,6 +34,7 @@ import {
 import { dashboard } from './views/dashboard.js';
 import { erfassung } from './views/erfassung.js';
 import { vorgaben } from './views/vorgaben.js';
+import { kalender } from './views/kalender.js';
 import { einstellungen } from './views/einstellungen.js';
 import { team } from './views/team.js';
 import { konten } from './views/konten.js';
@@ -55,6 +56,7 @@ const ICONS = {
   mehr: '<path d="M4 7h16M4 12h16M4 17h16"/>',
   dashboard: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
   erfassung: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18M8 14h3M8 17h6"/>',
+  kalender: '<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4M3 9h18"/><rect x="7" y="12" width="4" height="6" rx="1"/><rect x="13" y="12" width="4" height="3" rx="1"/>',
   vorgaben: '<path d="M4 6h16M4 12h16M4 18h9"/><circle cx="9" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="7" cy="18" r="2"/>',
   einstellungen: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
   team: '<path d="M17 20v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="10" cy="6" r="4"/><path d="M23 20v-2a4 4 0 0 0-3-3.87"/><path d="M16 2.13a4 4 0 0 1 0 7.75"/>',
@@ -78,6 +80,7 @@ const ANSICHTEN = {
     // die einen aus jeder Ansicht heraus interessieren sollte.
     zaehler: (d) => (erfassungsBeginn(d) ? gesamtSaldo(d, heuteISO()).luecken : 0),
   },
+  kalender: { titel: 'Kalender', view: kalender },
   vorgaben: { titel: 'Vorgaben', view: vorgaben },
   auswertung: { titel: 'Auswertung', view: auswertung },
   stammdaten: { titel: 'Stammdaten', navTitel: 'Kunden & Projekte', view: stammdatenAnsicht },
@@ -92,6 +95,7 @@ const ANSICHTEN = {
 const TABS = [
   { key: 'heute', titel: 'Heute' },
   { key: 'erfassung', titel: 'Erfassung' },
+  { key: 'kalender', titel: 'Kalender' },
   { key: 'dashboard', titel: 'Übersicht', icon: '<path d="M21 12a9 9 0 1 1-9-9v9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/>' },
   { key: 'mehr', titel: 'Mehr' },
 ];
@@ -100,15 +104,15 @@ const TAB_KEYS = TABS.map((t) => t.key);
 /* Reihenfolge in der Seitenleiste, je Rolle – 'einstellungen' wird unten
    abgesetzt (siehe navAufbauen). Team, Auswertung, Stammdaten und Konten
    sieht nur der Admin. */
-const REIHENFOLGE_MITARBEITER = ['dashboard', 'erfassung', 'vorgaben', 'einstellungen'];
+const REIHENFOLGE_MITARBEITER = ['dashboard', 'erfassung', 'kalender', 'vorgaben', 'einstellungen'];
 const REIHENFOLGE_ADMIN = [
-  'team', 'dashboard', 'erfassung', 'vorgaben', 'auswertung', 'stammdaten', 'konten', 'einstellungen',
+  'team', 'dashboard', 'erfassung', 'kalender', 'vorgaben', 'auswertung', 'stammdaten', 'konten', 'einstellungen',
 ];
 
 /* Einzelplatz: alles, was eine Person fuer sich selbst braucht – ohne Team
    und Konten, die es dort nicht gibt. */
 const REIHENFOLGE_EINZEL = [
-  'dashboard', 'erfassung', 'vorgaben', 'auswertung', 'stammdaten', 'einstellungen',
+  'dashboard', 'erfassung', 'kalender', 'vorgaben', 'auswertung', 'stammdaten', 'einstellungen',
 ];
 
 const reihenfolge = () => {
