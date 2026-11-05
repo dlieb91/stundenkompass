@@ -133,6 +133,37 @@ export function ueberschneidungen(intervalle) {
   return treffer;
 }
 
+/**
+ * Pausen, die als Luecke zwischen zwei Abschnitten stecken – in Minuten.
+ *
+ * Die Luecke zwischen zwei Abschnitten *ist* eine Pause (so steht es auch
+ * in der Erfassung), sie muss deshalb bei der gesetzlichen Mindestpause
+ * mitzaehlen. Sonst meldete jeder Tag, der mit der Stempeluhr in zwei
+ * Abschnitten erfasst wurde, faelschlich eine zu kurze Pause.
+ *
+ * Gezaehlt wird nach ArbZG §4 nur, was mindestens 15 Minuten am Stueck
+ * dauert. Die Abschnitte werden in der eingetragenen Reihenfolge gelesen;
+ * beginnt einer frueher als sein Vorgaenger, liegt er nach Mitternacht.
+ */
+export function pausenLuecken(intervalle) {
+  const strecken = [];
+  for (const iv of intervalle || []) {
+    const von = zuMinuten(iv?.von);
+    const dauer = intervallDauer(iv);
+    if (von == null || !dauer) continue;
+    let a = von;
+    const vorher = strecken[strecken.length - 1];
+    while (vorher && a < vorher.a) a += TAG_MINUTEN;
+    strecken.push({ a, b: a + dauer });
+  }
+  let summe = 0;
+  for (let i = 1; i < strecken.length; i++) {
+    const luecke = strecken[i].a - strecken[i - 1].b;
+    if (luecke >= 15) summe += luecke;
+  }
+  return summe;
+}
+
 /* ---------- Gesetzliche Grenzen ---------- */
 
 /**
@@ -181,7 +212,8 @@ export function tageszeit(tag, { projektpflicht = false } = {}) {
   if (unvollstaendig(intervalle)) warnungen.push('unvollstaendig');
   if (ueberschneidungen(intervalle).length) warnungen.push('ueberschneidung');
   if (istMin < 0) warnungen.push('negativ');
-  if (istMin > 0 && pauseMin < mindestpause(istMin)) warnungen.push('pause');
+  // Pausenfeld plus Luecken zwischen den Abschnitten – beides ist Pause.
+  if (istMin > 0 && pauseMin + pausenLuecken(intervalle) < mindestpause(istMin)) warnungen.push('pause');
   if (istMin > HOECHSTARBEITSZEIT) warnungen.push('hoechstzeit');
   if (projektpflicht && intervalle.some((iv) => intervallDauer(iv) && !iv.projektId)) {
     warnungen.push('ohneProjekt');
