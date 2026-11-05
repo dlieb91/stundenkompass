@@ -1,5 +1,6 @@
-/* Auswertung – nur fuer den Admin: gebuchte Stunden nach Projekt, Kunde und
-   Mitarbeiter, fuer einen waehlbaren Zeitraum.
+/* Auswertung – gebuchte Stunden nach Projekt, Kunde und Mitarbeiter, fuer
+   einen waehlbaren Zeitraum. Im Team nur fuer den Admin, ueber alle Konten;
+   im Einzelplatz ueber den eigenen Datensatz, ohne Spalte je Mitarbeiter.
 
    Die Rechnung selbst steckt vollstaendig in projekte.js (projektAuswertung) –
    diese Ansicht holt nur die Datensaetze und Stammdaten, ruft die Funktion
@@ -13,6 +14,9 @@ import { heuteISO } from '../kalender.js';
 import { stundenText } from '../zeit.js';
 import { projektAuswertung } from '../projekte.js';
 import * as api from '../api.js';
+import { istEinzel } from '../betrieb.js';
+import { state } from '../store.js';
+import { aktuell as stammdatenAktuell } from '../stammdaten.js';
 
 export const auswertung = {
   render(container) {
@@ -26,7 +30,7 @@ export const auswertung = {
     const platz = el('div', { text: 'Lädt …', style: 'color:var(--text-faint);font-size:13px' });
     inner.append(platz);
 
-    Promise.all([api.uebersicht(), api.stammdaten()]).then(([{ mitarbeiter }, { stammdaten }]) => {
+    quellen().then(([{ mitarbeiter }, { stammdaten }]) => {
       leeren(inner);
       inner.append(auswertungKarte(mitarbeiter, stammdaten, monatsanfang, heute, neu));
     }).catch((e) => {
@@ -35,6 +39,16 @@ export const auswertung = {
     });
   },
 };
+
+/** Team: alle aktiven Konten vom Server. Einzelplatz: der eigene Datensatz. */
+function quellen() {
+  if (!istEinzel()) return Promise.all([api.uebersicht(), api.stammdaten()]);
+  const d = state.daten;
+  return Promise.resolve([
+    { mitarbeiter: [{ konto: { id: 'einzel', name: d.meta.name }, daten: d }] },
+    { stammdaten: stammdatenAktuell() },
+  ]);
+}
 
 function auswertungKarte(mitarbeiter, stammdaten, von, bis, neu) {
   if (!stammdaten.projekte?.length) {
@@ -112,7 +126,7 @@ function projektTabelle(aus) {
     el('td.faint', { text: p.code }),
     el('td', { text: p.name }),
     el('td.num', { text: num(p.minuten / 60, 2) }),
-    el('td.faint', {
+    istEinzel() ? null : el('td.faint', {
       text: p.jeMitarbeiter.map((m) => `${m.name}: ${num(m.minuten / 60, 1)} h`).join(' · '),
     }),
   ]));
@@ -121,7 +135,7 @@ function projektTabelle(aus) {
       el('td.faint', { text: '–' }),
       el('td.faint', { text: 'Ohne Projekt' }),
       el('td.num', { text: num(aus.ohneProjektMinuten / 60, 2) }),
-      el('td.faint', { text: '' }),
+      istEinzel() ? null : el('td.faint', { text: '' }),
     ]));
   }
 
@@ -129,7 +143,8 @@ function projektTabelle(aus) {
     el('table.data.kompakt', {}, [
       el('thead', {}, [el('tr', {}, [
         el('th', { text: 'Code' }), el('th', { text: 'Projekt' }),
-        el('th', { style: 'text-align:right', text: 'Stunden' }), el('th', { text: 'je Mitarbeiter' }),
+        el('th', { style: 'text-align:right', text: 'Stunden' }),
+        istEinzel() ? null : el('th', { text: 'je Mitarbeiter' }),
       ])]),
       el('tbody', {}, zeilen),
     ]),

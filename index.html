@@ -5,6 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>StundenKompass</title>
 <link rel="stylesheet" href="css/app.css">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0b0e14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<!-- „black" statt „black-translucent": die App beginnt unter der
+     Statusleiste, statt darunter durchzulaufen und Abstaende zu brauchen. -->
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="StundenKompass">
+<link rel="apple-touch-icon" href="bilder/icon-180.png">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='-130 -130 260 260'><circle r='125' fill='%2314213D'/><polygon points='0,-104 20,-14 0,-2 -20,-14' fill='%23C9A227'/><polygon points='0,96 16,-2 0,-14 -16,-2' fill='%23F7F5F0'/><circle r='13' fill='%231B2B4A'/></svg>">
 </head>
 <body>
@@ -91,6 +100,10 @@
         <div id="saveStatus" class="save-status" title="Speicherstatus">
           <span class="dot"></span><span class="label">Gespeichert</span>
         </div>
+        <!-- Nur im Einzelplatz mit Dropbox sichtbar; Klick gleicht sofort ab. -->
+        <button id="syncStatus" class="save-status sync-status" type="button" title="Mit Dropbox abgleichen" hidden>
+          <span class="dot"></span><span class="label"></span>
+        </button>
         <button id="btnFolder" class="btn btn-ghost" type="button" title="Konto und Server – siehe Einstellungen">
           <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><circle cx="12" cy="8" r="3.4"/><path d="M4.5 20c1.3-3.7 4.2-5.6 7.5-5.6s6.2 1.9 7.5 5.6"/></svg>
           <span id="folderName">Konto</span>

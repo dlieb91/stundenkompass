@@ -11,6 +11,8 @@
    eine Datendatei – sie beschreibt die Sicht, nicht die Zahlen.
 */
 
+import { istEinzel } from './betrieb.js';
+
 const SPEICHER_KEY = 'stundenkompass-betrachtet';
 
 export const sitzung = {
@@ -45,10 +47,11 @@ export function betrachtenSetzen(kontoId) {
 
 /**
  * Duerfen Wochenplan, Erfassungsbeginn, Anfangsbestand, Urlaubsanspruch und
- * Bundesland veraendert werden? Nur der Admin pflegt diese Vorgaben – ganz
- * gleich, ob er dabei sein eigenes oder ein fremdes Konto betrachtet.
+ * Bundesland veraendert werden? Im Team pflegt nur der Admin diese Vorgaben –
+ * ganz gleich, ob er dabei sein eigenes oder ein fremdes Konto betrachtet.
+ * Im Einzelplatz gibt es keine Verwaltung; wer die App benutzt, pflegt sie.
  */
-export const darfVorgabenBearbeiten = () => istAdmin();
+export const darfVorgabenBearbeiten = () => istAdmin() || istEinzel();
 
 /** Name fuer das Aenderungsprotokoll: wer hat tatsaechlich gehandelt. */
 export const wer = () => sitzung.konto?.name ?? null;

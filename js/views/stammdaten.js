@@ -1,19 +1,20 @@
-/* Stammdaten – nur fuer den Admin: Kunden und Projekte, auf die Mitarbeiter
-   ihre Zeiten buchen koennen.
+/* Stammdaten – Kunden und Projekte, auf die Zeiten gebucht werden.
+   Im Team nur fuer den Admin; im Einzelplatz fuer die eine Person, die es
+   gibt. Wo die Daten liegen, entscheidet js/stammdaten.js.
 
    projektpflicht schaltet die ganze Funktion frei. Aus (Standard): keine
    Projektspalte in der Erfassung, keine Beanstandung – ein Betrieb ohne
    Projekte merkt von alldem nichts.
 
    Archiviert wird, nicht geloescht, wie schon bei den Konten. Ein Kunde
-   mit noch aktiven Projekten laesst sich nicht archivieren; der Server
+   mit noch aktiven Projekten laesst sich nicht archivieren; die Meldung
    nennt dann die betroffenen Projekte.
 */
 
 import { el, leeren, toast, bestaetigen, modal } from '../util.js';
 import { hinweis, abschnitt } from '../felder.js';
-import * as api from '../api.js';
-import { stammdatenLaden } from '../stammdaten.js';
+import * as sd from '../stammdaten.js';
+import { istEinzel } from '../betrieb.js';
 
 export const stammdaten = {
   render(container) {
@@ -24,7 +25,7 @@ export const stammdaten = {
     const platz = el('div', { text: 'Lädt …', style: 'color:var(--text-faint);font-size:13px' });
     inner.append(platz);
 
-    stammdatenLaden().then((daten) => {
+    sd.stammdatenLaden().then((daten) => {
       leeren(inner);
       inner.append(pflichtKarte(daten, neu));
       inner.append(kundenKarte(daten, neu));
@@ -44,7 +45,7 @@ function pflichtKarte(daten, neu) {
     onchange: async (e) => {
       const an = e.target.checked;
       try {
-        await api.projektpflichtSetzen(an);
+        await sd.projektpflichtSetzen(an);
         toast(an ? 'Projektpflicht eingeschaltet' : 'Projektpflicht ausgeschaltet', 'ok');
         neu();
       } catch (err) {
@@ -54,7 +55,7 @@ function pflichtKarte(daten, neu) {
     },
   });
 
-  return abschnitt('Projektbuchung', 'gilt für den ganzen Betrieb', [
+  return abschnitt('Projektbuchung', istEinzel() ? 'gilt für alle deine Zeiten' : 'gilt für den ganzen Betrieb', [
     el('div', {}, [
       el('label', { style: 'display:flex;align-items:center;cursor:pointer;color:var(--text)' }, [
         schalter, 'Projekt bei jedem Arbeitsabschnitt verlangen',
@@ -85,7 +86,7 @@ function kundenKarte(daten, neu) {
       return;
     }
     try {
-      await api.kundeAnlegen({ nummer: nummer.value.trim(), name: name.value.trim(), notiz: notiz.value.trim() });
+      await sd.kundeAnlegen({ nummer: nummer.value.trim(), name: name.value.trim(), notiz: notiz.value.trim() });
       toast('Kunde angelegt', 'ok');
       neu();
     } catch (e) {
@@ -165,7 +166,7 @@ function kundeBearbeitenDialog(k, neu) {
   }).then(async (v) => {
     if (v !== '\0') return;
     try {
-      await api.kundeAendern(k.id, { nummer: nummer.value.trim(), name: name.value.trim(), notiz: notiz.value.trim() });
+      await sd.kundeAendern(k.id, { nummer: nummer.value.trim(), name: name.value.trim(), notiz: notiz.value.trim() });
       toast('Gespeichert', 'ok');
       neu();
     } catch (e) {
@@ -177,12 +178,12 @@ function kundeBearbeitenDialog(k, neu) {
 async function kundeAktivUmschalten(k, neu) {
   if (k.aktiv) {
     const ok = await bestaetigen('Kunde archivieren',
-      `„${k.name}" taucht danach in keiner Auswahl mehr auf. Solange noch aktive Projekte auf ihn zeigen, lehnt der Server das ab.`,
+      `„${k.name}" taucht danach in keiner Auswahl mehr auf. Solange noch aktive Projekte auf ihn zeigen, geht das nicht.`,
       { okText: 'Archivieren', gefahr: true });
     if (!ok) return;
   }
   try {
-    await api.kundeAktivSetzen(k.id, !k.aktiv);
+    await sd.kundeAktivSetzen(k.id, !k.aktiv);
     toast(k.aktiv ? 'Archiviert' : 'Aktiviert', 'ok');
     neu();
   } catch (e) {
@@ -211,7 +212,7 @@ function projekteKarte(daten, neu) {
       return;
     }
     try {
-      await api.projektAnlegen({
+      await sd.projektAnlegen({
         code: code.value.trim(), name: name.value.trim(),
         kundeId: kunde.value || null, details: details.value.trim(),
       });
@@ -304,7 +305,7 @@ function projektBearbeitenDialog(p, kunden, neu) {
   }).then(async (v) => {
     if (v !== '\0') return;
     try {
-      await api.projektAendern(p.id, {
+      await sd.projektAendern(p.id, {
         code: code.value.trim(), name: name.value.trim(),
         kundeId: kunde.value || null, details: details.value.trim(),
       });
@@ -324,7 +325,7 @@ async function projektAktivUmschalten(p, neu) {
     if (!ok) return;
   }
   try {
-    await api.projektAktivSetzen(p.id, !p.aktiv);
+    await sd.projektAktivSetzen(p.id, !p.aktiv);
     toast(p.aktiv ? 'Archiviert' : 'Aktiviert', 'ok');
     neu();
   } catch (e) {

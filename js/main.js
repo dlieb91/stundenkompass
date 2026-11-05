@@ -1,13 +1,27 @@
-/* Einstieg: Anmeldung, Navigation, Router.
+/* Einstieg: Betriebsart, Anmeldung bzw. Ablagewahl, Navigation, Router.
 
-   GERÜST – anzupassen sind nur ICONS, ANSICHTEN und REIHENFOLGE, dazu
-   die Texte des Anmeldebildschirms. Der Rest traegt sich selbst.
+   Zwei Wege in die App (siehe betrieb.js):
+     team     Anmeldung am Server, danach der Datensatz des Kontos
+     einzel   Wahl der Ablage – Ordner, Dropbox oder dieses Geraet –,
+              danach die stunden.json darin. Keine Konten, kein Server.
+   Ab appStarten() laufen beide Wege gemeinsam weiter.
 */
 
 import {
   $, el, leeren, toast, modal,
 } from './util.js';
-import { speicher, datenquelle, datenLesen, sofortSpeichern } from './storage.js';
+import {
+  speicher, datenquelle, datenLesen, sofortSpeichern,
+  istUnterstuetzt, verfuegbareAblagen, ablageWaehlen, rechtePruefen, ablageMerken,
+  gemerkteAblage, ablageUebernehmen, erstbezug,
+} from './storage.js';
+import { betrieb, betriebErmitteln, istEinzel } from './betrieb.js';
+import { aufApple, speicherWarnung } from './speicher/lokal.js';
+import * as dbx from './speicher/dropboxApi.js';
+import { dateiFeld } from './uebernahme.js';
+import {
+  anbinden as abgleichAnbinden, anzeigeAnmelden, dropboxAnmelden,
+} from './abgleich.js';
 import {
   sitzung, gesetzt as sitzungGesetzt, verworfen as sitzungVerworfen,
   istAdmin, eigeneId, betrachteteId, betrachtenSetzen, betrachtetSichSelbst,
@@ -71,7 +85,16 @@ const REIHENFOLGE_ADMIN = [
   'team', 'dashboard', 'erfassung', 'vorgaben', 'auswertung', 'stammdaten', 'konten', 'einstellungen',
 ];
 
-const reihenfolge = () => (istAdmin() ? REIHENFOLGE_ADMIN : REIHENFOLGE_MITARBEITER);
+/* Einzelplatz: alles, was eine Person fuer sich selbst braucht – ohne Team
+   und Konten, die es dort nicht gibt. */
+const REIHENFOLGE_EINZEL = [
+  'dashboard', 'erfassung', 'vorgaben', 'auswertung', 'stammdaten', 'einstellungen',
+];
+
+const reihenfolge = () => {
+  if (istEinzel()) return REIHENFOLGE_EINZEL;
+  return istAdmin() ? REIHENFOLGE_ADMIN : REIHENFOLGE_MITARBEITER;
+};
 
 /* ---------- Design ---------- */
 
@@ -97,6 +120,31 @@ function startFehler(titel, html) {
 async function starten() {
   themaInitialisieren();
   datenquelle(() => state.daten);
+
+  if (location.protocol === 'file:') {
+    startFehler('Bitte über eine Adresse öffnen',
+      'Die App wurde direkt als Datei geöffnet. So erlaubt der Browser weder Ordnerzugriff noch Server.<br><br>'
+      + 'Im Team: <strong>Start-Server.bat</strong> starten. Für dich allein: die Adresse aus der LIESMICH öffnen.');
+    return;
+  }
+
+  await betriebErmitteln();
+  if (istEinzel()) {
+    await einzelStarten();
+    return;
+  }
+  if (betrieb.serverFehlt) {
+    startFehler('Server nicht erreichbar',
+      'Läuft der Server noch? Auf dem Server-Rechner muss <strong>Start-Server.bat</strong> offen sein.<br><br>'
+      + 'Prüfe außerdem, ob die Adresse in der Adressleiste stimmt.');
+    return;
+  }
+  teamStarten();
+}
+
+/* ---------- Team: Anmeldung am Server ---------- */
+
+async function teamStarten() {
   window.addEventListener('sk:abgemeldet', abgemeldetBehandeln);
 
   // Vor jedem moeglichen Speichern verdrahtet – auch vor dem allerersten,
@@ -286,6 +334,222 @@ function zurueckZurAnmeldung(nachricht) {
   loginZeigen(nachricht);
 }
 
+/* ---------- Einzelplatz: Ablage waehlen ---------- */
+
+/**
+ * Service Worker anmelden – nur im Einzelplatz und nur im sicheren Kontext,
+ * den der Browser dafuer verlangt. Scheitert das, laeuft die App einfach
+ * ohne Offline-Faehigkeit weiter.
+ */
+function offlineVorbereiten() {
+  if (!('serviceWorker' in navigator) || !window.isSecureContext) return;
+  /* Uebernimmt ein neuer Service Worker, laufen die bereits geladenen Module
+     noch aus der alten Fassung – einmal neu laden holt sie. Beim allerersten
+     Besuch gab es keinen alten: die Module kamen frisch aus dem Netz, und ein
+     Neuladen risse nur den Startbildschirm unter dem Finger weg. */
+  const hatteVorgaenger = !!navigator.serviceWorker.controller;
+  let neugeladen = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hatteVorgaenger || neugeladen) return;
+    neugeladen = true;
+    location.reload();
+  });
+  navigator.serviceWorker.register('sw.js')
+    .then((reg) => reg.update())
+    .catch((e) => console.warn('Offline-Betrieb nicht verfügbar:', e.message));
+}
+
+async function einzelStarten() {
+  offlineVorbereiten();
+  $('.startup-sub').textContent = 'Arbeitszeiten erfassen, Überstunden und Urlaub im Blick behalten – '
+    + 'für dich allein, ohne Server.';
+
+  if (!istUnterstuetzt()) {
+    startFehler('Browser zu alt',
+      'Die App braucht IndexedDB, um Daten zu speichern. Das kann jeder aktuelle Browser – '
+      + 'bitte aktualisiere deinen Browser und öffne die App erneut.');
+    return;
+  }
+
+  /* Kommen wir gerade von der Dropbox-Anmeldung zurueck? Dann zuerst den
+     Code einloesen – sonst stuende die App vor einer Ablage, bei der sie
+     sich noch nicht ausweisen kann. */
+  if (dbx.rueckkehrErkannt()) {
+    leeren(startBereich()).append(el('div.spinner'));
+    try {
+      if (await dbx.anmeldungAbschliessen()) {
+        await verbinden({ kennung: 'dropbox', ziel: { kennung: 'dropbox' }, name: 'Dropbox' });
+        return;
+      }
+    } catch (e) {
+      startFehler('Dropbox-Anmeldung fehlgeschlagen', dbx.fehlerKlartext(e).text);
+      startBereich().append(el('button.btn', {
+        type: 'button', style: 'margin-top:12px', onclick: () => startAuswahlZeigen(null),
+      }, ['Zurück']));
+      return;
+    }
+  }
+
+  let gemerkt = null;
+  try { gemerkt = await gemerkteAblage(); } catch { /* ignorieren */ }
+  startAuswahlZeigen(gemerkt);
+}
+
+function startAuswahlZeigen(gemerkt) {
+  const body = leeren(startBereich());
+  const mitOrdner = verfuegbareAblagen().some((a) => a.kennung === 'ordner');
+
+  if (gemerkt) {
+    const symbol = { ordner: '📁', dropbox: '☁️', lokal: '📱' }[gemerkt.kennung] || '📁';
+    body.append(el('div.startup-recent', {}, [
+      el('div', { style: 'font-size:19px' }, [symbol]),
+      el('div', { style: 'min-width:0' }, [
+        el('div.rec-name', { text: gemerkt.name }),
+        el('div.rec-path', { text: 'zuletzt verwendet' }),
+      ]),
+    ]));
+    body.append(el('button.btn.btn-primary.btn-lg', {
+      type: 'button', onclick: () => verbinden(gemerkt),
+    }, ['Öffnen']));
+    body.append(el('button.btn.btn-ghost', {
+      type: 'button', onclick: () => startAuswahlZeigen(null),
+    }, ['Andere Ablage wählen']));
+    return;
+  }
+
+  if (mitOrdner) {
+    body.append(el('button.btn.btn-primary.btn-lg', { type: 'button', onclick: () => ordnerDialog() }, ['Ordner wählen']));
+    body.append(el('button.btn', { type: 'button', onclick: () => dropboxStarten() }, ['Mit Dropbox verbinden']));
+    body.append(el('button.btn.btn-ghost', { type: 'button', onclick: () => lokalStarten() }, ['Nur auf diesem Gerät']));
+    body.append(el('div.startup-hint', {
+      text: 'Im gewählten Ordner speichert die App stunden.json und tägliche Sicherungen. Liegt dort schon '
+        + 'eine stunden.json, wird sie geöffnet. Mit Dropbox siehst du auf allen Geräten denselben Stand.',
+    }));
+  } else {
+    /* Safari und damit jeder Browser auf iPhone und iPad: kein Ordnerzugriff. */
+    body.append(el('button.btn.btn-primary.btn-lg', { type: 'button', onclick: () => dropboxStarten() }, ['Mit Dropbox verbinden']));
+    body.append(el('button.btn', { type: 'button', onclick: () => lokalStarten() }, ['Nur auf diesem Gerät']));
+    body.append(el('div.startup-hint', {
+      text: 'Dieser Browser kann nicht auf einen Ordner zugreifen. Über Dropbox siehst du auf allen '
+        + 'Geräten denselben Stand; „Nur auf diesem Gerät" speichert ohne Abgleich im Browser.',
+    }));
+  }
+
+  /* Die Warnung lohnt hier nur, wo sie wirklich draengt – auf iPhone und iPad. */
+  const warnung = aufApple() ? speicherWarnung() : null;
+  if (warnung) body.append(el('div.startup-hint', { html: warnung }));
+}
+
+async function ordnerDialog() {
+  let auswahl;
+  try {
+    auswahl = await ablageWaehlen('ordner');
+  } catch (e) {
+    if (e.name !== 'AbortError') toast('Ordner konnte nicht geöffnet werden: ' + e.message, 'err');
+    return;
+  }
+  await verbinden({ ...auswahl, name: auswahl.ziel.name });
+}
+
+async function lokalStarten() {
+  const auswahl = await ablageWaehlen('lokal');
+  await verbinden({ ...auswahl, name: 'Dieses Gerät' });
+}
+
+async function dropboxStarten() {
+  if (await dbx.angemeldet()) {
+    await verbinden({ kennung: 'dropbox', ziel: { kennung: 'dropbox' }, name: 'Dropbox' });
+    return;
+  }
+  await dropboxAnmelden(); // verlaesst bei Erfolg die Seite
+}
+
+async function verbinden(auswahl) {
+  leeren(startBereich()).append(el('div.spinner'));
+
+  try {
+    if (!(await rechtePruefen(auswahl))) {
+      startFehler('Zugriff verweigert', auswahl.kennung === 'dropbox'
+        ? 'Die Dropbox-Anmeldung ist nicht mehr gültig. Bitte neu verbinden.'
+        : 'Ohne Schreibrecht auf den Ordner können die Zeiten nicht geladen werden.');
+      startBereich().append(el('button.btn', {
+        type: 'button', style: 'margin-top:12px', onclick: () => startAuswahlZeigen(null),
+      }, ['Zurück']));
+      return;
+    }
+
+    await ablageUebernehmen(auswahl);
+    /* Bei Dropbox zuerst nachsehen, ob drueben schon Zeiten liegen –
+       sonst legte jedes neue Geraet einen zweiten, leeren Stand an. */
+    if (auswahl.kennung === 'dropbox') await erstbezug();
+    let daten = await datenLesen();
+
+    if (!daten) {
+      const wo = {
+        ordner: `Im Ordner „${auswahl.name}" liegt noch keine stunden.json.`,
+        dropbox: 'In deiner Dropbox liegt noch keine stunden.json.',
+        lokal: 'Auf diesem Gerät sind noch keine Zeiten gespeichert.',
+      }[auswahl.kennung];
+      daten = await neuOderUebernehmen(wo);
+      if (!daten) { startAuswahlZeigen(null); return; }
+      laden(daten);
+      await sofortSpeichern();
+      toast('Gespeichert', 'ok');
+    } else {
+      laden(daten);
+    }
+
+    await ablageMerken(auswahl);
+    appStarten();
+    anzeigeAnmelden(() => { chromeAktualisieren(); routen(); });
+    abgleichAnbinden();
+  } catch (e) {
+    console.error(e);
+    startFehler('Daten konnten nicht geladen werden',
+      auswahl.kennung === 'dropbox' ? dbx.fehlerKlartext(e).text : (e.message || String(e)));
+    startBereich().append(el('button.btn', {
+      type: 'button', style: 'margin-top:12px', onclick: () => startAuswahlZeigen(null),
+    }, ['Zurück']));
+  }
+}
+
+/**
+ * Die Ablage ist leer: neu anfangen oder vorhandene Zeiten mitbringen –
+ * etwa den Export aus dem Team-Betrieb oder aus einer anderen Ablage.
+ * Liefert den Datensatz oder null bei Abbruch.
+ */
+async function neuOderUebernehmen(wo) {
+  const name = el('input', { type: 'text', placeholder: 'z. B. Max Mustermann' });
+  const datei = dateiFeld();
+  const fehler = el('div', { style: 'font-size:12px;color:var(--neg)' });
+
+  const wert = await modal({
+    titel: 'Neu anfangen',
+    beschreibung: wo,
+    inhalt: el('div', { style: 'display:grid;gap:14px' }, [
+      el('div.field', {}, [el('label', { text: 'Dein Name – für einen leeren Datensatz' }), name]),
+      el('div.field', {}, [
+        el('label', { text: 'Oder vorhandene Zeiten übernehmen (.json aus „Als Datei exportieren")' }),
+        datei.element,
+      ]),
+      fehler,
+    ]),
+    buttons: [
+      { text: 'Abbrechen', wert: null },
+      {
+        text: 'Weiter', klasse: 'btn-primary', wert: '\0',
+        vorAbschluss: () => {
+          if (datei.daten() || name.value.trim()) return true;
+          fehler.textContent = 'Bitte einen Namen eintragen oder eine Datei wählen.';
+          return false;
+        },
+      },
+    ],
+  });
+  if (wert !== '\0') return null;
+  return datei.daten() || neueDaten(name.value.trim());
+}
+
 /* ---------- App ---------- */
 
 let gestartet = false;
@@ -304,6 +568,12 @@ function appStarten() {
     });
     $('#btnFolder').addEventListener('click', () => { location.hash = '#/einstellungen'; });
     $('#btnAbmelden').addEventListener('click', abmeldenKlick);
+    // Im Einzelplatz gibt es niemanden abzumelden.
+    $('#btnAbmelden').hidden = istEinzel();
+    $('#btnFolder').title = istEinzel() ? 'Speicherort – siehe Einstellungen' : 'Konto und Server – siehe Einstellungen';
+    if (istEinzel()) {
+      $('#btnFolder svg').innerHTML = '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>';
+    }
 
     window.addEventListener('hashchange', routen);
     window.addEventListener('beforeunload', (e) => {
@@ -381,8 +651,8 @@ function chromeAktualisieren() {
   }
 
   const version = $('#version');
-  if (version) version.textContent = `v2.0 · Schema ${d.schemaVersion}`;
-  $('#folderName').textContent = sitzung.konto?.name || 'Konto';
+  if (version) version.textContent = `v2.1 · ${istEinzel() ? 'Einzelplatz' : 'Team'} · Schema ${d.schemaVersion}`;
+  $('#folderName').textContent = istEinzel() ? (speicher.ablageName || 'Ablage') : (sitzung.konto?.name || 'Konto');
 
   // Der Titel kann von den Daten abhaengen, deshalb hier erneut setzen
   const key = (location.hash.replace(/^#\//, '') || reihenfolge()[0]).split('?')[0];
@@ -414,7 +684,11 @@ function statusAnzeigen(status, detail) {
     error: 'Fehler beim Speichern',
   };
   label.textContent = texte[status] || '';
-  if (status === 'error') toast('Speichern fehlgeschlagen. Läuft der Server noch?', 'err', 7000);
+  if (status === 'error') {
+    toast(istEinzel()
+      ? 'Speichern fehlgeschlagen. Ist der Ordner noch erreichbar? Siehe Einstellungen.'
+      : 'Speichern fehlgeschlagen. Läuft der Server noch?', 'err', 7000);
+  }
 }
 
 function routen() {

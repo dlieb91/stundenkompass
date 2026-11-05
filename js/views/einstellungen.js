@@ -1,8 +1,10 @@
-/* Einstellungen – eigenes Konto, Server, Sicherungen (Admin), Änderungsprotokoll.
+/* Einstellungen – je nach Betriebsart (betrieb.js):
 
-   Die Ordner-Sicherungen des Einzelplatzbetriebs sind Server-Sicherungen
-   geworden: sie liegen jetzt auf dem Server-Rechner und sind nur für die
-   Verwaltung einsehbar (server/ablage.js legt sie täglich an).
+     team     eigenes Konto, Server, Sicherungen auf dem Server (Admin)
+     einzel   Speicherort (Ordner, Dropbox, Geraet), Export und Import,
+              Sicherungen in der eigenen Ablage
+
+   Dazu in beiden Faellen Name und Aenderungsprotokoll.
 */
 
 import {
@@ -12,10 +14,18 @@ import { abschnitt, hinweis } from '../felder.js';
 import {
   state, aendern, laden, protokollEintraege,
 } from '../store.js';
-import { speicher, sofortSpeichern } from '../storage.js';
+import {
+  speicher, sofortSpeichern, alsDateiSichern, backupsAuflisten, backupLesen,
+  ablageVergessen, dropboxTrennen, geraetedatenLoeschen, abgleichStatus,
+} from '../storage.js';
 import {
   sitzung, istAdmin, betrachteteId, betrachtetSichSelbst,
 } from '../sitzung.js';
+import { istEinzel } from '../betrieb.js';
+import { aktuell as stammdatenAktuell } from '../stammdaten.js';
+import { speicherWarnung } from '../speicher/lokal.js';
+import { jetztAbgleichen } from '../abgleich.js';
+import { dateiFeld, pruefen } from '../uebernahme.js';
 import * as api from '../api.js';
 
 export const einstellungen = {
@@ -26,11 +36,250 @@ export const einstellungen = {
     const neu = () => { leeren(container); this.render(container); };
 
     inner.append(kopfKarte(neu));
-    inner.append(kontoKarte());
-    if (istAdmin()) inner.append(sicherungKarte(neu));
+    if (istEinzel()) {
+      inner.append(ablageKarte(neu));
+      inner.append(dateiKarte(neu));
+      inner.append(ablageSicherungKarte(neu));
+    } else {
+      inner.append(kontoKarte());
+      if (istAdmin()) inner.append(sicherungKarte(neu));
+    }
     inner.append(protokollKarte());
   },
 };
+
+/* ---------- Export (beide Betriebsarten) ---------- */
+
+/**
+ * Laedt den offenen Datensatz als .json herunter. Kunden und Projekte gehen
+ * mit – im Team liegen sie sonst nur auf dem Server, und wer seine Zeiten in
+ * den Einzelplatz mitnimmt, braeuchte sie dort, damit die Buchungen ihre
+ * Projekte wiederfinden.
+ */
+function exportieren() {
+  const d = state.daten;
+  const sd = stammdatenAktuell();
+  const mit = sd ? { ...d, stammdaten: { projektpflicht: !!sd.projektpflicht, kunden: sd.kunden || [], projekte: sd.projekte || [] } } : d;
+  const name = String(d.meta.name || 'stunden').replace(/[\\/:*?"<>|]/g, '-').replace(/\s+/g, '_');
+  const tag = new Date().toISOString().slice(0, 10);
+  alsDateiSichern(mit, `stundenkompass-${name}-${tag}.json`);
+  toast('Datei heruntergeladen', 'ok');
+}
+
+/* ---------- Einzelplatz: Speicherort ---------- */
+
+const ABLAGE_TEXT = {
+  ordner: ['Ordner auf diesem Rechner', 'Die Zeiten liegen als stunden.json im gewählten Ordner, daneben die '
+    + 'täglichen Sicherungen. Der Ordner darf in OneDrive oder Dropbox liegen.'],
+  dropbox: ['Dropbox', 'Die App arbeitet im Speicher dieses Geräts und gleicht mit Dropbox ab – beim Start, '
+    + 'bei der Rückkehr zur App, wenn das Netz wiederkommt und kurz nach jeder Änderung. Ohne Netz geht die '
+    + 'Arbeit normal weiter.'],
+  lokal: ['Auf diesem Gerät', null],
+};
+
+function ablageKarte(neu) {
+  const [art, text] = ABLAGE_TEXT[speicher.kennung] || ['–', null];
+  // Ordnername oder Dropbox-Konto; die Platzhalter „Dropbox"/„Dieses Gerät" wiederholten nur die Art.
+  const zusatz = ['Dropbox', 'Dieses Gerät'].includes(speicher.ablageName) ? '' : speicher.ablageName;
+  const karte = el('div.card', {}, [
+    el('div.card-head', {}, [
+      el('div', {}, [
+        el('h2', { text: 'Speicherort' }),
+        el('div.sub', { text: zusatz ? `${art} · ${zusatz}` : art }),
+      ]),
+      el('button.btn.btn-sm', {
+        type: 'button',
+        onclick: async () => { await sofortSpeichern(); toast('Gespeichert', 'ok'); },
+      }, ['Jetzt speichern']),
+    ]),
+  ]);
+
+  const body = el('div.card-body', { style: 'display:grid;gap:12px' });
+  const warnung = speicher.kennung === 'lokal' ? speicherWarnung() : null;
+  if (text) body.append(hinweis(text));
+  if (warnung) body.append(hinweis(warnung));
+
+  const knoepfe = el('div', { style: 'display:flex;gap:10px;flex-wrap:wrap' });
+
+  if (speicher.kennung === 'dropbox') {
+    const status = el('div', { style: 'font-size:12.5px;color:var(--text-faint)', text: 'Status wird ermittelt …' });
+    body.append(status);
+    abgleichStatus().then((s) => {
+      status.textContent = [
+        s.konto ? `Verbunden als ${s.konto}` : 'Verbunden',
+        s.offeneAenderungen ? 'Änderungen warten auf den Abgleich' : 'alles abgeglichen',
+        s.online ? null : 'gerade offline',
+      ].filter(Boolean).join(' · ');
+    }).catch(() => { status.textContent = ''; });
+
+    knoepfe.append(
+      el('button.btn.btn-sm', { type: 'button', onclick: async () => { await jetztAbgleichen(false); neu(); } }, ['Jetzt abgleichen']),
+      el('button.btn.btn-sm.btn-danger', {
+        type: 'button',
+        onclick: async () => {
+          const ok = await bestaetigen('Dropbox trennen',
+            'Die Anmeldung und der Zwischenspeicher auf diesem Gerät werden entfernt. Die stunden.json in '
+            + 'deiner Dropbox bleibt unberührt. Noch nicht abgeglichene Änderungen gehen verloren – vorher '
+            + 'abgleichen oder als Datei exportieren.',
+            { okText: 'Trennen', gefahr: true });
+          if (!ok) return;
+          await dropboxTrennen();
+          location.reload();
+        },
+      }, ['Dropbox trennen']),
+    );
+  }
+
+  knoepfe.append(el('button.btn.btn-sm', {
+    type: 'button',
+    onclick: async () => {
+      const ok = await bestaetigen('Andere Ablage wählen',
+        'Die App kehrt zum Startbildschirm zurück. Die Daten bleiben, wo sie sind. Willst du deinen Stand '
+        + 'mitnehmen, exportiere ihn vorher als Datei und übernimm ihn in der neuen Ablage.',
+        { okText: 'Zum Startbildschirm' });
+      if (!ok) return;
+      if (speicher.status === 'dirty' || speicher.status === 'saving') await sofortSpeichern();
+      await ablageVergessen();
+      location.reload();
+    },
+  }, ['Andere Ablage wählen']));
+
+  if (speicher.kennung === 'lokal') {
+    knoepfe.append(el('button.btn.btn-sm.btn-danger', {
+      type: 'button',
+      onclick: async () => {
+        const ok = await bestaetigen('Daten von diesem Gerät löschen',
+          'Alle Zeiten und Sicherungen im Speicher dieses Browsers werden gelöscht. Das lässt sich nicht '
+          + 'rückgängig machen – vorher als Datei exportieren.',
+          { okText: 'Endgültig löschen', gefahr: true });
+        if (!ok) return;
+        await geraetedatenLoeschen();
+        location.reload();
+      },
+    }, ['Daten von diesem Gerät löschen']));
+  }
+
+  body.append(knoepfe);
+  karte.append(body);
+  return karte;
+}
+
+/* ---------- Einzelplatz: Export und Import ---------- */
+
+function dateiKarte(neu) {
+  return abschnitt('Als Datei', 'zum Mitnehmen, Sichern und Umziehen', [
+    hinweis('Der Export enthält alle Zeiten, Vorgaben, Kunden und Projekte. Mit „Aus Datei übernehmen" '
+      + 'holst du einen solchen Export herein – aus dem Team-Betrieb, von einem anderen Gerät oder aus einer '
+      + 'anderen Ablage.'),
+    el('div', { style: 'display:flex;gap:10px;flex-wrap:wrap' }, [
+      el('button.btn.btn-sm', { type: 'button', onclick: exportieren }, ['Als Datei exportieren']),
+      el('button.btn.btn-sm', { type: 'button', onclick: () => importieren(neu) }, ['Aus Datei übernehmen …']),
+    ]),
+  ]);
+}
+
+async function importieren(neu) {
+  const datei = dateiFeld();
+  const wert = await modal({
+    titel: 'Aus Datei übernehmen',
+    beschreibung: 'Der aktuelle Stand wird vollständig ersetzt. Er wird vorher als Sicherung abgelegt '
+      + 'und ist darüber wiederherstellbar.',
+    inhalt: datei.element,
+    buttons: [
+      { text: 'Abbrechen', wert: null },
+      { text: 'Ersetzen', klasse: 'btn-danger', wert: '\0', vorAbschluss: () => !!datei.daten() },
+    ],
+  });
+  if (wert !== '\0') return;
+  ersetzen(datei.daten());
+  toast('Übernommen', 'ok');
+  neu();
+}
+
+/**
+ * Ersetzt den offenen Stand. Ueber aendern(), nicht nur laden(): der
+ * Zaehler muss steigen, sonst haelt der Dropbox-Abgleich die Uebernahme
+ * fuer „nichts passiert" und holt beim naechsten Lauf den alten Stand zurueck.
+ * letztesBackup ist geleert (siehe pruefen()), also sichert das naechste
+ * Speichern den Stand davor.
+ */
+function ersetzen(daten) {
+  laden(daten);
+  aendern();
+}
+
+/* ---------- Einzelplatz: Sicherungen in der Ablage ---------- */
+
+function ablageSicherungKarte(neu) {
+  const karte = el('div.card', {}, [
+    el('div.card-head', {}, [
+      el('div', {}, [
+        el('h2', { text: 'Sicherungen' }),
+        el('div.sub', { text: speicher.kennung === 'ordner' ? 'im Unterordner backups' : 'im Speicher dieses Geräts' }),
+      ]),
+    ]),
+  ]);
+  const body = el('div.card-body', {}, [
+    el('div', { text: 'Sicherungen werden geladen …', style: 'color:var(--text-faint);font-size:13px' }),
+  ]);
+  karte.append(body);
+
+  backupsAuflisten().then((liste) => {
+    leeren(body);
+    body.append(hinweis(
+      'Einmal täglich wird vor der ersten Änderung der bisherige Stand gesichert – die letzten 20 bleiben. '
+      + (speicher.kennung === 'dropbox'
+        ? 'Dazu kommen die Stände, die ein Dropbox-Abgleich ersetzt hat. '
+        : '')
+      + 'Vor dem Wiederherstellen wird der aktuelle Stand selbst gesichert.'
+    ));
+    if (!liste.length) {
+      body.append(el('div.dim', { style: 'font-size:13px', text: 'Noch keine Sicherung vorhanden.' }));
+      return;
+    }
+    body.append(el('div.plan-scroll', {}, [el('table.data.kompakt', {}, [
+      el('thead', {}, [el('tr', {}, [
+        el('th', { text: 'Sicherung' }),
+        el('th', { style: 'text-align:right', text: 'Größe' }),
+        el('th', { text: '' }),
+      ])]),
+      el('tbody', {}, liste.map((b) => el('tr', {}, [
+        el('td', { text: sicherungName(b.name) }),
+        el('td.num', { text: num(b.groesse / 1024, 1) + ' kB' }),
+        el('td', { style: 'text-align:right' }, [
+          el('button.btn.btn-sm', { type: 'button', onclick: () => ausSicherung(b.name, neu) }, ['Wiederherstellen']),
+        ]),
+      ]))),
+    ])]));
+  }).catch((e) => {
+    leeren(body);
+    body.append(el('div.startup-err', { text: 'Sicherungen konnten nicht gelesen werden: ' + e.message }));
+  });
+  return karte;
+}
+
+/** „stundenkompass-2026-11-04-09-12.json" → „04.11.2026, 09:12" (+ Art, wenn es keine Tagessicherung ist). */
+function sicherungName(name) {
+  const m = name.match(/^(.*?)-?(\d{4})-(\d{2})-(\d{2})-(\d{2})-(\d{2})\.json$/);
+  if (!m) return name;
+  const art = { 'konflikt': ' · aus Dropbox-Konflikt', 'vor-abgleich': ' · vor Abgleich' }[m[1]] || '';
+  return `${m[4]}.${m[3]}.${m[2]}, ${m[5]}:${m[6]}${art}`;
+}
+
+async function ausSicherung(name, neu) {
+  const ok = await bestaetigen('Sicherung wiederherstellen',
+    `Der aktuelle Stand wird zuvor gesichert. Danach gilt der Stand „${sicherungName(name)}".`,
+    { okText: 'Wiederherstellen' });
+  if (!ok) return;
+  try {
+    ersetzen(pruefen(await backupLesen(name)));
+    await sofortSpeichern();
+    toast('Sicherung wiederhergestellt', 'ok');
+    neu();
+  } catch (e) {
+    toast('Wiederherstellen fehlgeschlagen: ' + e.message, 'err', 6000);
+  }
+}
 
 /* ---------- Name und Zeitstempel ---------- */
 
@@ -88,6 +337,10 @@ function kontoKarte() {
     ),
     el('div', { style: 'display:flex;gap:10px;flex-wrap:wrap' }, [
       el('button.btn.btn-sm', { type: 'button', onclick: () => passwortAendernDialog() }, ['Passwort ändern']),
+      el('button.btn.btn-sm', {
+        type: 'button', onclick: exportieren,
+        title: 'Zum Sichern oder um die Zeiten in den Einzelplatz-Betrieb mitzunehmen',
+      }, ['Als Datei exportieren']),
       el('button.btn.btn-sm.btn-danger', {
         type: 'button',
         onclick: async () => {

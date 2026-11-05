@@ -1,12 +1,25 @@
 # StundenKompass
 
-Arbeitszeiterfassung für ein ganzes Team. Ein Rechner im Büro läuft dauerhaft als
-Server und hält die Daten aller Mitarbeiter; alle anderen öffnen die App nur noch im
-Browser über eine Adresse im internen Netz. Es verlässt nichts das Netz des Betriebs.
+Arbeitszeiterfassung. Sie beantwortet drei Fragen: **Wie viele Über- oder Minusstunden
+habe ich?** **Wie viel Urlaub ist noch übrig?** **Was habe ich diesen Monat
+gearbeitet?** Im Team kommt für die Verwaltung eine vierte hinzu: **Wie steht das ganze
+Team?**
 
-Sie beantwortet drei Fragen: **Wie viele Über- oder Minusstunden habe ich?**
-**Wie viel Urlaub ist noch übrig?** **Was habe ich diesen Monat gearbeitet?** Für die
-Verwaltung kommt eine vierte hinzu: **Wie steht das ganze Team?**
+Derselbe Code läuft auf zwei Arten:
+
+| | **Team** | **Einzelplatz** |
+|---|---|---|
+| Wo | ein Rechner im Büro als Server, alle anderen im Browser | **https://dlieb91.github.io/stundenkompass/** – von überall |
+| Wer | mehrere Mitarbeiter mit Konten, Rollen, Verwaltung | eine Person, keine Anmeldung |
+| Daten | `daten/` auf dem Server-Rechner | Ordner, Dropbox oder Speicher des Geräts |
+| Start | `Start-Server.bat` | Adresse öffnen |
+| Offline | nein | ja, nach dem ersten Besuch |
+
+Welche Art gerade läuft, erkennt die App selbst: Nur der Team-Server beantwortet
+`/api/sitzung`. Unten links steht es noch einmal, z. B. *v2.1 · Einzelplatz · Schema 5*.
+
+Der Einzelplatz ist unten unter [Einzelplatz – von überall](#einzelplatz--von-überall)
+beschrieben. Alles bis dahin gilt dem Team-Betrieb.
 
 ## Rollen
 
@@ -249,6 +262,133 @@ Ein rotes Zeichen am Zeilenende meldet:
 was dasteht – alles andere erzeugte Zahlen, die sich in der eigenen Eingabe nicht
 wiederfinden.
 
+## Einzelplatz – von überall
+
+Für eine Person, ohne Server, ohne Anmeldung. Die App liegt auf GitHub Pages:
+
+> **https://dlieb91.github.io/stundenkompass/**
+
+Die Adresse in Chrome, Edge oder Safari öffnen und eine Ablage wählen. Alles Fachliche –
+Erfassung, Vorgaben, Dashboard, Kunden und Projekte, Auswertung – ist dasselbe wie im
+Team. Es fehlen nur Team-Übersicht, Konten und Rollen; die Vorgaben pflegt man selbst.
+
+### Wo die Daten liegen
+
+Drei Ablagen mit demselben Aufbau:
+
+```
+stunden.json   alle Zeiten, Vorgaben, Kunden und Projekte (lesbares JSON)
+backups/       tägliche Sicherung, die letzten 20
+```
+
+**Ordner auf diesem Rechner** – nur Chrome und Edge. Die Dateien sind sichtbar und
+lassen sich außerhalb der App sichern. Der Ordner darf in OneDrive oder Dropbox liegen.
+Wer den Ordner der allerersten Einzelplatz-Fassung wählt (`Dokumente\StundenKompass`),
+findet seine `stunden.json` dort wieder.
+
+**Dropbox** – wenn Rechner, iPhone und iPad denselben Stand zeigen sollen. Die App
+arbeitet dabei immer zuerst im Speicher des Geräts und gleicht daneben ab; ohne Netz
+geht die Arbeit normal weiter, und alles wird nachgeholt.
+
+**Nur auf diesem Gerät** – im Browserspeicher (IndexedDB). Der gehört **diesem Browser
+auf diesem Gerät**; ein anderes Profil oder ein privates Fenster sieht ihn nicht. **Auf
+iPhone und iPad löscht Safari ihn nach sieben Tagen ohne Besuch** – ausgenommen sind
+nur Web-Apps auf dem Home-Bildschirm.
+
+### Auf iPhone und iPad
+
+Adresse in Safari öffnen, *Teilen → Zum Home-Bildschirm*. Erst damit ist der Speicher
+dauerhaft und die App startet im Vollbild. Safari kann nicht auf Ordner zugreifen;
+auf diesen Geräten heißt die Wahl also Dropbox oder Gerätespeicher – und für mehr als
+ein Gerät Dropbox.
+
+### Abgleich mit Dropbox – einmal einrichten
+
+1. Auf **dropbox.com/developers/apps** eine App anlegen: *Scoped access*,
+   *App folder*, Name z. B. `StundenKompass`. Die App bekommt dadurch einen eigenen Ordner
+   (`Apps/StundenKompass`) und sieht nichts sonst in deiner Dropbox.
+2. Reiter *Permissions*: `files.content.read` und `files.content.write` ankreuzen und
+   mit *Submit* speichern – **vor** dem nächsten Schritt; nachträglich gesetzte Rechte
+   greifen erst nach einer neuen Anmeldung.
+3. Reiter *Settings*: den **App key** kopieren und unter *Redirect URIs* genau diese
+   Adresse eintragen (auf das Zeichen genau, mit Schrägstrich am Ende):
+
+   ```
+   https://dlieb91.github.io/stundenkompass/
+   ```
+
+   Die App zeigt dieselbe Adresse im Einrichtungsdialog zum Kopieren an.
+4. In der App *Mit Dropbox verbinden*, App key einfügen, bei Dropbox anmelden.
+
+Eine eigene Dropbox-App statt der von ImmoPortfolio hält die Ordner sauber getrennt.
+Technisch ginge auch die vorhandene – dann mit dieser zweiten Redirect-URI, und
+`stunden.json` läge neben `portfolio.json`.
+
+Der App key ist nicht geheim – er benennt nur die App. Die Anmeldung läuft über PKCE,
+es gibt kein App-Geheimnis im Code. Der dauerhafte Zugang liegt nur auf dem Gerät.
+**Jedes Gerät meldet sich einmal selbst an**, und die Web-App auf dem Home-Bildschirm
+zählt dabei als eigenes Gerät, auch wenn Safari schon angemeldet ist.
+
+### Wann abgeglichen wird, und was bei Widerspruch passiert
+
+Beim Start, bei der Rückkehr zur App, wenn das Netz wiederkommt und rund acht Sekunden
+nach der letzten Änderung. Der Zustand steht oben rechts in der Kopfzeile; ein Klick
+darauf gleicht sofort ab.
+
+Haben **beide Seiten** seit dem letzten Abgleich etwas geändert – etwa am Rechner und
+offline am iPhone –, führt die App die Stände **nicht** zusammen. Ein Dialog zeigt beide
+Fassungen (Änderungsdatum, Gerät, erfasste Tage) und du entscheidest. Die unterlegene
+Fassung bleibt als Sicherung erhalten und ist unter *Einstellungen → Sicherungen*
+wiederherstellbar.
+
+Technisch stützt sich das auf einen Zähler in der Datei (`meta.stand`), der mit jeder
+Änderung steigt, und auf Dropbox' eigene Kennung des Dateistands (`rev`). Hochgeladen
+wird nur, wenn die Datei drüben noch die erwartete `rev` hat – sonst meldet Dropbox
+einen Konflikt, statt den fremden Stand zu überschreiben. Uhrzeiten werden bewusst nicht
+verglichen.
+
+### Vom Team-Server in den Einzelplatz umziehen
+
+1. Im Team anmelden, *Einstellungen → Als Datei exportieren*. Die Datei enthält die
+   eigenen Zeiten **und** die Kunden und Projekte des Betriebs, damit gebuchte Stunden
+   ihr Projekt wiederfinden.
+2. Den Einzelplatz öffnen, Ablage wählen. Ist sie leer, im Dialog *Neu anfangen* unter
+   „Oder vorhandene Zeiten übernehmen" die Datei wählen.
+   Ist schon etwas da: *Einstellungen → Aus Datei übernehmen*. Der bisherige Stand wird
+   dabei als Sicherung abgelegt.
+
+Derselbe Weg führt von einer Ablage in eine andere (z. B. vom Gerätespeicher in
+Dropbox): exportieren, *Andere Ablage wählen*, übernehmen.
+
+### Grenzen des Einzelplatzes
+
+- **Kein Mehrbenutzerbetrieb.** Ein Dropbox-Konto, eine Person, mehrere Geräte
+  nacheinander. Zwei Leute, die gleichzeitig dieselbe Datei bearbeiten, erzeugen nur
+  Konflikte. Für ein Team ist der Team-Server da.
+- **Deine Daten liegen bei Dropbox**, wenn du Dropbox wählst. Das ist der Preis für den
+  Zugriff von überall ohne eigenen Server.
+- **Auf dem iPhone noch nicht erprobt:** Ob die Dropbox-Anmeldung aus einer Web-App auf
+  dem Home-Bildschirm sauber zurückspringt, hängt an iOS. Das ist der erste Punkt, den
+  du auf dem Gerät selbst testen solltest.
+- **Am Telefon ist die Erfassungstabelle breit.** Sie scrollt waagerecht; einen Monat
+  Tag für Tag auf 390 px Breite nebeneinander zu lesen geht nur so.
+
+### Eine neue Fassung veröffentlichen
+
+```
+git add -A
+git commit -m "Was sich geändert hat"
+git push
+```
+
+GitHub Pages baut danach selbsttätig, meist binnen einer Minute. Die App holt sich die
+neuen Dateien beim nächsten Start – der Service Worker fragt immer zuerst das Netz.
+
+**Was nicht ins Repository gehört** und durch `.gitignore` gesperrt ist: `daten/` des
+Team-Servers (Konten mit Passwort-Hashes, alle Datensätze), jede `stunden.json`,
+Sicherungen und die lokalen Claude-Einstellungen. Das Repository ist öffentlich; der
+Code enthält keine Geheimnisse.
+
 ## Grenzen der Rechnung
 
 Die App ist ein Stundenkonto, keine Lohnabrechnung. Sie rechnet bewusst nicht:
@@ -271,13 +411,18 @@ Die App ist ein Stundenkonto, keine Lohnabrechnung. Sie rechnet bewusst nicht:
   fehlen. Einzelne Tage lassen sich in der Erfassung jederzeit überschreiben.
 - **Kein Gleitzeitrahmen, keine Kappungsgrenze.** Das Konto läuft unbegrenzt weiter, auch
   wenn ein Arbeitsvertrag den Aufbau begrenzen würde.
-- **Nur fürs interne Netz.** Die Verbindung zwischen Browser und Server läuft
+- **Team: nur fürs interne Netz.** Die Verbindung zwischen Browser und Server läuft
   unverschlüsselt (HTTP). Das ist für ein vertrauenswürdiges Firmennetz gedacht – nicht
-  für offenes WLAN und nicht dafür, den Server-Rechner ins Internet durchzureichen.
-- **Läuft der Server-Rechner nicht, arbeitet niemand.** Es gibt keinen Offline-Betrieb
-  und keine Zwischenspeicherung im Browser der Mitarbeiter.
-- **Wer den Server-Rechner selbst bedient, kann alle Daten lesen.** Der Rollenschutz
-  gilt für den Weg über die App, nicht für die Dateien auf der Festplatte.
+  für offenes WLAN und nicht dafür, den Server-Rechner ins Internet durchzureichen. Wer
+  von unterwegs erfassen will, nimmt den Einzelplatz.
+- **Team: läuft der Server-Rechner nicht, arbeitet niemand.** Es gibt im Team keinen
+  Offline-Betrieb und keine Zwischenspeicherung im Browser der Mitarbeiter.
+- **Team: wer den Server-Rechner selbst bedient, kann alle Daten lesen.** Der
+  Rollenschutz gilt für den Weg über die App, nicht für die Dateien auf der Festplatte.
+- **Team und Einzelplatz sind getrennte Welten.** Zeiten, die im Einzelplatz erfasst
+  werden, kommen nicht von selbst beim Team-Server an, und umgekehrt. Hinüber geht es
+  nur über *Als Datei exportieren* und *Aus Datei übernehmen* – und das ersetzt den
+  Stand am Ziel vollständig, es führt nichts zusammen.
 - **Die Projektauswertung zählt Stunden, sie rechnet keine Abrechnung.** Keine
   Stundensätze, keine Rechnungen, keine Budgetüberwachung, kein Soll-Ist-Vergleich je
   Projekt. Sie beantwortet „wie viele Stunden", nicht „was hat es gekostet".
@@ -304,11 +449,19 @@ entsteht mit `--jahr 2027`.
 
 ## Daten und Sicherungen
 
-Alles steht im Ordner `daten/` auf dem **Server-Rechner** – je Mitarbeiter eine eigene,
-lesbare JSON-Datei unter `daten/mitarbeiter/`, dazu `daten/team.json` mit den Konten
-(Passwörter nur als Hash, nie im Klartext). Der Server legt einmal täglich eine
+**Team:** Alles steht im Ordner `daten/` auf dem **Server-Rechner** – je Mitarbeiter eine
+eigene, lesbare JSON-Datei unter `daten/mitarbeiter/`, dazu `daten/team.json` mit den
+Konten (Passwörter nur als Hash, nie im Klartext). Der Server legt einmal täglich eine
 Sicherung an, die letzten 20 Tage bleiben erhalten; die Verwaltung sieht und stellt sie
 unter *Einstellungen → Sicherungen* wieder her.
+
+Der Server liefert nur die Programmdateien aus (`index.html`, `css/`, `js/`, `bilder/`,
+Manifest, Service Worker). Bis zur Fassung 2.1 lieferte er **jede** Datei im Ordner aus,
+also auch `daten/team.json` – jeder im Netz hätte die Passwort-Hashes ohne Anmeldung
+abrufen können. Wer den Team-Server vorher in einem Netz mit fremden Geräten betrieben
+hat, sollte die Passwörter neu vergeben.
+
+**Einzelplatz:** siehe [Wo die Daten liegen](#wo-die-daten-liegen).
 
 Nur Tage, an denen etwas vom Kalender abweicht, stehen in der Datei eines Mitarbeiters.
 Ein gewöhnliches Wochenende taucht dort nicht auf.
@@ -324,9 +477,24 @@ server/stammdaten.js Kunden und Projekte: anlegen, ändern, archivieren
 server/api.js       Routen und Rechteprüfung – hier wird jede Rolle durchgesetzt
 einrichten.js        Ersteinrichtung: legt daten/team.json und das erste Konto an
 
-js/api.js           Hülle um fetch() für die /api/-Routen
+index.html           Grundgerüst
+manifest.webmanifest Web-App-Hülle für „Zum Home-Bildschirm"
+sw.js                Service Worker (nur Einzelplatz): Programmdateien für offline
+
+js/betrieb.js        Team oder Einzelplatz? Erkennt es an /api/sitzung
+js/main.js           Start: Anmeldung (Team) oder Ablagewahl (Einzelplatz), Router
+js/storage.js        Autosave – schreibt an den Server oder in die gewählte Ablage
+js/speicher/ordner.js      Ablage im Ordner (File System Access API)
+js/speicher/lokal.js       Ablage auf dem Gerät (IndexedDB)
+js/speicher/dropbox.js     Ablage Dropbox: lokal zuerst, Abgleich daneben
+js/speicher/dropboxApi.js  Dropbox-Anmeldung (PKCE) und REST-Aufrufe
+js/speicher/dateiablage.js IndexedDB-Dateiablage, Grundlage von lokal und dropbox
+js/db.js             IndexedDB: gemerkte Ablage, Dropbox-Zugang, Gerätespeicher
+js/abgleich.js       wann abgeglichen wird, Konfliktdialog, Dropbox-Einrichtung
+js/uebernahme.js     Zeiten aus einer Datei übernehmen (prüft und migriert)
+js/api.js           Hülle um fetch() für die /api/-Routen (nur Team)
 js/sitzung.js        Angemeldetes Konto, betrachtetes Konto, Admin-Umschalter
-js/stammdaten.js     Geladene Kunden und Projekte im Browser, „zuletzt genutzt"
+js/stammdaten.js     Kunden und Projekte: Team vom Server, Einzelplatz aus der eigenen Datei
 js/zeit.js           Uhrzeiten, Abschnitte, Pausen, gesetzliche Grenzen
 js/kalender.js       Datumsrechnung, Kalenderwochen, Feiertage je Bundesland
 js/saldo.js          Stunden- und Urlaubskonto

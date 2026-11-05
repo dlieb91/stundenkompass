@@ -17,9 +17,14 @@
      tage{}          iso -> erfasster Tag. Nur was abweicht, steht drin: ein
                      gewoehnlicher Wochenendtag braucht keinen Eintrag.
      protokoll[]     jede Feldaenderung mit vorher/nachher/wer
-     meta.version    fortlaufende Zahl; der Server lehnt einen Schreibvorgang
-                     mit veralteter Version ab (409), statt eine gleichzeitige
-                     Aenderung stillschweigend zu ueberschreiben
+     meta.version    nur Team: fortlaufende Zahl, vom Server vergeben; er lehnt
+                     einen Schreibvorgang mit veralteter Version ab (409), statt
+                     eine gleichzeitige Aenderung stillschweigend zu ueberschreiben
+     meta.stand      zaehlt mit jeder Aenderung hoch – Grundlage des Dropbox-
+                     Abgleichs im Einzelplatzbetrieb (speicher/dropbox.js)
+     meta.geraet     wo zuletzt geaendert wurde, nur zur Anzeige im Konfliktfall
+     stammdaten      nur Einzelplatz: Kunden und Projekte. Im Team liegen sie
+                     betriebsweit auf dem Server, nicht im Datensatz.
 
    Ein Tag:
      art         siehe TAGESARTEN in saldo.js
@@ -32,7 +37,7 @@ import { planeSpeichern } from './storage.js';
 import { heuteISO } from './kalender.js';
 import { wer } from './sitzung.js';
 
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 /* ---------- Vorgabewerte ---------- */
 
@@ -74,8 +79,28 @@ function benachrichtigen() {
 export function aendern(fn) {
   if (typeof fn === 'function') fn(state.daten);
   state.daten.meta.geaendertAm = zeitstempel();
+  state.daten.meta.stand = (state.daten.meta.stand || 0) + 1;
+  state.daten.meta.geraet = geraeteKennung();
   benachrichtigen();
   planeSpeichern();
+}
+
+/**
+ * Kennung dieses Geraets – nur zur Anzeige im Konfliktfall („zuletzt
+ * geaendert auf: iPhone"). Sie steht im localStorage, nicht in der Datei,
+ * denn sie beschreibt das Geraet und nicht die Zeiten.
+ */
+export function geraeteKennung() {
+  let k = null;
+  try { k = localStorage.getItem('stundenkompass-geraet'); } catch { /* privates Fenster */ }
+  if (!k) {
+    const ua = navigator.userAgent;
+    const name = /iPad/.test(ua) ? 'iPad' : /iPhone/.test(ua) ? 'iPhone' : /Android/.test(ua) ? 'Android'
+      : /Mac/.test(ua) ? 'Mac' : 'PC';
+    k = `${name}-${Math.random().toString(36).slice(2, 7)}`;
+    try { localStorage.setItem('stundenkompass-geraet', k); } catch { /* egal */ }
+  }
+  return k;
 }
 
 /* ---------- Neuanlage & Migration ---------- */
@@ -90,6 +115,8 @@ export function neueDaten(name) {
       geaendertAm: zeitstempel(),
       letztesBackup: null,
       version: 0,
+      stand: 0,
+      geraet: null,
     },
     einstellungen: { ...STANDARD_EINSTELLUNGEN },
     wochenplaene: [{ id: uid('plan'), gueltigAb: null, ...STANDARD_WOCHENPLAN }],
@@ -146,6 +173,19 @@ export function migrieren(daten) {
      angibt. */
   if (v < 4) {
     daten.schemaVersion = 4;
+  }
+
+  /* Schema 5: Einzelplatzbetrieb mit Dropbox-Abgleich. meta.stand zaehlt
+     Aenderungen, unabhaengig von der Server-Version – der Abgleich muss
+     wissen, ob sich *hier* etwas bewegt hat, und eine Uhrzeit taugt dafuer
+     nicht. Eine bestehende Datei beginnt bei 1, nicht bei 0: 0 ist der
+     Stand einer frisch angelegten, noch nie geaenderten Datei. */
+  if (v < 5) {
+    if (daten.meta) {
+      if (typeof daten.meta.stand !== 'number') daten.meta.stand = 1;
+      if (daten.meta.geraet === undefined) daten.meta.geraet = null;
+    }
+    daten.schemaVersion = 5;
   }
 
   const basis = neueDaten(daten.meta?.name);

@@ -93,7 +93,10 @@ button, input, select, textarea { font: inherit; color: inherit; }
    Layout
    ============================================================ */
 
-.app { display: flex; height: 100vh; overflow: hidden; }
+/* 100dvh folgt der sichtbaren Flaeche – sonst verdeckt die Symbolleiste von
+   Safari auf iPhone und iPad den unteren Rand. 100vh bleibt fuer aeltere
+   Browser davor stehen. */
+.app { display: flex; height: 100vh; height: 100dvh; overflow: hidden; }
 .app[hidden] { display: none; }
 
 .sidebar {
@@ -176,6 +179,30 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .save-status[data-state="error"] .dot { background: var(--neg); }
 .save-status[data-state="dirty"] .dot { background: var(--text-faint); }
 @keyframes pulse { 50% { opacity: .3; } }
+
+/* Klassenregeln schlagen die eingebaute [hidden]-Regel des Browsers – ohne
+   das blieben Abgleich-Anzeige und Abmelde-Knopf im Einzelplatz sichtbar. */
+.save-status[hidden], .btn[hidden] { display: none; }
+
+/* Abgleich mit Dropbox (nur Einzelplatz) – dieselbe Optik, aber anklickbar. */
+.sync-status {
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: transparent; padding: 5px 10px; min-height: 32px;
+  font: inherit; font-size: 12px; color: var(--text-faint); cursor: pointer;
+  transition: border-color var(--t), color var(--t);
+}
+.sync-status:hover { border-color: var(--border-strong); color: var(--text-dim); }
+.sync-status[data-state="laeuft"] .dot { background: var(--warn); animation: pulse 1s ease-in-out infinite; }
+.sync-status[data-state="fertig"] .dot { background: var(--pos); }
+.sync-status[data-state="offline"] .dot { background: var(--text-faint); }
+.sync-status[data-state="konflikt"] .dot { background: var(--warn); }
+.sync-status[data-state="konflikt"] { border-color: var(--warn); color: var(--warn); }
+.sync-status[data-state="fehler"] .dot { background: var(--neg); }
+.sync-status[data-state="fehler"] { border-color: var(--neg); color: var(--neg); }
+
+/* Konfliktdialog: zwei Fassungen nebeneinander, auf schmalen Geräten untereinander. */
+.konflikt-paar { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 560px) { .konflikt-paar { grid-template-columns: 1fr; } }
 
 .view { flex: 1; overflow-y: auto; padding: 26px 24px 60px; }
 .view-inner { max-width: 1240px; margin: 0 auto; }
@@ -440,6 +467,9 @@ table.data .num { text-align: right; font-variant-numeric: tabular-nums; }
 }
 .toolbar input[type="search"], .toolbar select { width: auto; }
 
+/* Leer – etwa der Mitarbeiter-Umschalter ohne Admin-Rechte oder im
+   Einzelplatz – bliebe sonst als winziger Rahmen in der Kopfzeile stehen. */
+.seg:empty { display: none; }
 .seg {
   display: inline-flex; background: var(--surface-2);
   border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
@@ -597,6 +627,27 @@ table.data tfoot td {
   .nav-item { justify-content: center; }
   .view { padding: 18px 14px 40px; }
   .topbar { padding: 0 14px; }
+}
+
+/* Die Ansichten sind Grids mit automatischer Spaltenbreite – ohne Grenze
+   waechst die Spalte auf die Breite der breitesten Tabelle, und die ganze
+   Seite laeuft rechts aus dem Bild. So bleibt die Spalte so breit wie der
+   Bildschirm, und breite Tabellen scrollen in ihrer Karte. */
+.view-inner { grid-template-columns: minmax(0, 1fr); }
+.card { min-width: 0; }
+
+/* Telefon: in der Kopfzeile nur, was man unterwegs braucht. Der Name steht
+   im Dashboard, der Speicherstand bleibt als farbiger Punkt sichtbar. */
+@media (max-width: 600px) {
+  .topbar { gap: 8px; }
+  .topbar-left h1 { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #datenName, #betrachtungHinweis, .save-status .label, #folderName { display: none; }
+  .sync-status { padding: 5px 8px; }
+  .topbar-right { gap: 6px; }
+  /* Kartenkoepfe tragen rechts Knoepfe und Monatsnavigation – untereinander
+     statt aus dem Bild hinaus. */
+  .card-head { flex-wrap: wrap; gap: 10px; }
+  .card-head > * { min-width: 0; flex-wrap: wrap; }
 }
 
 /* ============================================================
