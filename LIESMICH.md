@@ -309,11 +309,14 @@ aus dem Stundenkonto.
 Urlaub an einem Wochenende oder Feiertag kostet **keinen** Urlaubstag – ein Feiertag
 mitten in der Urlaubswoche wird nicht abgezogen.
 
-### Urlaub planen
+### Urlaub eintragen
 
-*Urlaub planen …* trägt einen Zeitraum in einem Zug ein und lässt Wochenenden und
-Feiertage aus. Geplante Tage in der Zukunft belasten sofort das Urlaubsbudget, erzeugen
-aber keine Minusstunden.
+*Urlaub eintragen …* (in der Erfassung und im Kalender) trägt einen Zeitraum **von – bis**
+in einem Zug ein und lässt Wochenenden und Feiertage aus. Im Kalender ist der gezeigte Tag
+vorbelegt, danach springt der Kalender an den Beginn des Urlaubs. Geplante Tage in der
+Zukunft belasten sofort das Urlaubsbudget, erzeugen aber keine Minusstunden. Ist an einem
+der Tage schon Arbeitszeit erfasst, nennt der Dialog ihn vorher: Die Zeiten bleiben stehen
+und zählen zusätzlich.
 
 ### Nicht erfasste Tage
 

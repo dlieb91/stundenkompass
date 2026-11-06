@@ -25,6 +25,7 @@ import { artMit } from '../saldo.js';
 import { handyAnsicht } from '../ansicht.js';
 import { tagesTermine, stundenBereich } from '../kalenderTermine.js';
 import { tagBlatt } from './erfassungHandy.js';
+import { urlaubEintragen } from './erfassung.js';
 
 const SCHLUESSEL = 'stundenkompass-kalender';
 
@@ -109,6 +110,13 @@ export const kalender = {
         ]),
       ]),
       el('div', { style: 'display:flex;align-items:center;gap:12px;flex-wrap:wrap' }, [
+        el('button.btn.btn-sm.btn-primary', {
+          type: 'button', title: 'Urlaub für einen Zeitraum von – bis eintragen',
+          // Vorbelegt mit dem gezeigten Tag; nach dem Eintragen springt der
+          // Kalender an den Beginn des Urlaubs.
+          onclick: () => urlaubEintragen({ von: sicht.tag, bis: sicht.tag, neu: () => {} })
+            .then((ersterTag) => { if (ersterTag) setzen({ tag: ersterTag }); }),
+        }, ['Urlaub eintragen …']),
         legende(),
         handy ? null : el('div.seg.seg-sm', {}, [
           el('button' + (modus === 'woche' ? '.aktiv' : ''), { type: 'button', onclick: () => setzen({ modus: 'woche' }) }, ['Woche']),

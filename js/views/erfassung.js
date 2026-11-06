@@ -8,7 +8,7 @@
    ein nur angeklickter Tag hinterlaesst so keinen leeren Eintrag.
 
    Am Handy steht statt der Tabelle eine Tagesliste (erfassungHandy.js);
-   Kopf, Summen, Luecken fuellen und Urlaub planen sind dieselben.
+   Kopf, Summen, Luecken fuellen und Urlaub eintragen sind dieselben.
 */
 
 import { el, leeren, num, datum, modal, bestaetigen, toast } from '../util.js';
@@ -83,7 +83,7 @@ function werkzeugleiste(jahr, monat, bilanz, neu) {
           : null,
         el('button.btn.btn-sm.btn-primary', {
           type: 'button', onclick: () => urlaubPlanen(jahr, monat, neu),
-        }, ['Urlaub planen …']),
+        }, ['Urlaub eintragen …']),
         el('button.btn.btn-sm', {
           type: 'button',
           title: 'Bericht für diesen Monat drucken oder im Druckdialog als PDF speichern',
@@ -114,11 +114,21 @@ async function lueckenFuellen(jahr, monat, neu) {
   neu();
 }
 
-async function urlaubPlanen(jahr, monat, neu) {
+function urlaubPlanen(jahr, monat, neu) {
   const erster = `${jahr}-${String(monat).padStart(2, '0')}-01`;
-  const vonInput = el('input', { type: 'date', value: erster });
-  const bisInput = el('input', { type: 'date', value: erster });
-  const vorschau = el('div.note', { style: 'margin:14px 0 0' });
+  return urlaubEintragen({ von: erster, bis: erster, neu });
+}
+
+/**
+ * Dialog „Urlaub eintragen" mit Von und Bis – aus der Erfassung und aus dem
+ * Kalender (dort vorbelegt mit dem gezeigten Tag). Eingetragen werden nur
+ * Arbeitstage; Wochenenden und Feiertage fallen von selbst heraus.
+ * Liefert den ersten eingetragenen Tag, oder false.
+ */
+export async function urlaubEintragen({ von: vonStart, bis: bisStart, neu }) {
+  const vonInput = el('input', { type: 'date', value: vonStart });
+  const bisInput = el('input', { type: 'date', value: bisStart || vonStart });
+  const vorschau = el('div.note', { style: 'margin:14px 0 0;display:block' });
 
   const betroffene = () => {
     const von = vonInput.value;
@@ -136,6 +146,9 @@ async function urlaubPlanen(jahr, monat, neu) {
 
   const vorschauSetzen = () => {
     const liste = betroffene();
+    // Tage mit erfasster Arbeitszeit werden zu Urlaub – die Zeiten bleiben
+    // stehen und zaehlen zusaetzlich. Das soll man vorher wissen.
+    const mitZeiten = liste.filter((iso) => tagesBilanz(iso, state.daten).istMin > 0);
     leeren(vorschau);
     vorschau.append(el('div', {
       text: liste.length
@@ -143,8 +156,19 @@ async function urlaubPlanen(jahr, monat, neu) {
           + 'Wochenenden und Feiertage bleiben ausgenommen.'
         : 'In diesem Zeitraum liegt kein Arbeitstag.',
     }));
+    if (mitZeiten.length) {
+      vorschau.append(el('div.neg', {
+        style: 'margin-top:6px',
+        text: `Achtung: An ${mitZeiten.map((iso) => datum(iso)).join(', ')} ist schon Arbeitszeit erfasst. `
+          + 'Sie bleibt stehen und wird zusätzlich zum Urlaub gezählt.',
+      }));
+    }
   };
-  vonInput.addEventListener('change', vorschauSetzen);
+  // Ein Bis vor dem Von waere kein Zeitraum – beim Aendern des Von nachziehen.
+  vonInput.addEventListener('change', () => {
+    if (vonInput.value && (!bisInput.value || bisInput.value < vonInput.value)) bisInput.value = vonInput.value;
+    vorschauSetzen();
+  });
   bisInput.addEventListener('change', vorschauSetzen);
   vorschauSetzen();
 
@@ -157,21 +181,22 @@ async function urlaubPlanen(jahr, monat, neu) {
   ]);
 
   const ok = await modal({
-    titel: 'Urlaub planen',
+    titel: 'Urlaub eintragen',
     beschreibung: 'Der Zeitraum wird als Urlaub eingetragen. Geplante Tage in der Zukunft belasten sofort '
       + 'das Urlaubsbudget, erzeugen aber keine Minusstunden.',
     inhalt,
     buttons: [{ text: 'Abbrechen', wert: false }, { text: 'Eintragen', wert: true, klasse: 'btn-primary' }],
   });
-  if (!ok) return;
+  if (!ok) return false;
 
   const liste = betroffene();
-  if (!liste.length) { toast('Kein Arbeitstag im Zeitraum', 'info'); return; }
+  if (!liste.length) { toast('Kein Arbeitstag im Zeitraum', 'info'); return false; }
   aendern(() => {
     for (const iso of liste) tagHolen(iso).art = 'urlaub';
   });
-  toast(`${liste.length} Urlaubstage eingetragen`, 'ok');
+  toast(`${liste.length} Urlaubstag${liste.length === 1 ? '' : 'e'} eingetragen`, 'ok');
   neu();
+  return liste[0];
 }
 
 function naechsterTag(iso) {
