@@ -267,6 +267,12 @@ Terminkalender. Am PC und iPad wahlweise **Woche** (Mo–So) oder **Tag**, am Ha
 der Tag. Ein Klick auf das Datum im Wochenkopf zeigt den Tag allein, ein Klick in eine
 Tagesspalte öffnet das Bearbeiten-Blatt. So lässt sich auch aus dem Kalender nachtragen.
 
+Links daneben steht ein **Minikalender** mit dem ganzen Monat. Unter etwa 1000 px Breite
+steht er darüber, am Handy klappt er über das Kalendersymbol neben *Heute* auf. Ein Klick
+auf einen Tag zeigt ihn groß in der Tagessicht. Farbige Punkte zeigen Arbeit, Krank und
+Urlaub, heute ist ausgefüllt. Mit ‹ › blättert man im Minikalender, ohne die große
+Ansicht zu verlassen. **Heute** springt in beiden zurück zum heutigen Tag.
+
 | Farbe | Bedeutung |
 |---|---|
 | blau | **Arbeit**, jeder erfasste Abschnitt so, wie er eingetragen ist. Lücken zwischen Abschnitten bleiben frei. Mit Projekt steht das Projekt als Titel da. |

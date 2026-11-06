@@ -14,6 +14,7 @@
    gewaehlt sind, steht im localStorage, nicht in der Datei. */
 
 import { el, leeren } from '../util.js';
+import { monatsTage, monatPlus, monatsBezeichnung } from '../kalender.js';
 import { state } from '../store.js';
 import {
   heuteISO, tagePlus, wochentag, kwNummer, MONATSNAMEN, WOCHENTAGE, WOCHENTAGE_LANG,
@@ -26,6 +27,10 @@ import { tagesTermine, stundenBereich } from '../kalenderTermine.js';
 import { tagBlatt } from './erfassungHandy.js';
 
 const SCHLUESSEL = 'stundenkompass-kalender';
+
+/* Zustand des Minikalenders: welcher Monat gezeigt wird und ob er am Handy
+   aufgeklappt ist. Nur fuer diese Sitzung, nicht im localStorage. */
+const mini = { folgt: null, jahr: 0, monat: 0, offen: false };
 const STUNDE_PX = 48;
 
 const ART_TEXT = { arbeit: 'Arbeit', krank: 'Krank', urlaub: 'Urlaub', pause: 'Pause' };
@@ -72,14 +77,32 @@ export const kalender = {
     const setzen = (aenderung) => { sichtSchreiben({ ...sicht, ...aenderung }); neu(); };
     const schritt = modus === 'woche' ? 7 : 1;
 
-    const inner = el('div.view-inner', { style: 'display:grid;gap:12px' });
-    container.append(inner);
+    // Der Minikalender folgt dem gewaehlten Tag, solange man nicht in ihm
+    // selbst blaettert.
+    if (mini.folgt !== sicht.tag) {
+      mini.folgt = sicht.tag;
+      mini.jahr = Number(sicht.tag.slice(0, 4));
+      mini.monat = Number(sicht.tag.slice(5, 7));
+    }
+
+    const aussen = el('div.view-inner.kal-layout' + (handy ? '' : '.mit-mini'));
+    const inner = el('div.kal-haupt', { style: 'display:grid;gap:12px;min-width:0' });
+    const miniBereich = (!handy || mini.offen)
+      ? minikalender({ sicht, modus, heute, waehlen: (iso) => { mini.offen = false; setzen({ modus: 'tag', tag: iso }); }, neu })
+      : null;
+    aussen.append(...(handy ? [] : [miniBereich]), inner);
+    container.append(aussen);
 
     inner.append(el('div.card', {}, [el('div.card-head.kal-kopf', {}, [
       el('div.kal-nav', {}, [
         el('button.btn.btn-sm', { type: 'button', title: modus === 'woche' ? 'Vorherige Woche' : 'Vorheriger Tag', onclick: () => setzen({ tag: tagePlus(sicht.tag, -schritt) }) }, ['◀']),
         el('button.btn.btn-sm', { type: 'button', title: modus === 'woche' ? 'Nächste Woche' : 'Nächster Tag', onclick: () => setzen({ tag: tagePlus(sicht.tag, schritt) }) }, ['▶']),
-        el('button.btn.btn-sm.btn-ghost', { type: 'button', onclick: () => setzen({ tag: heute }) }, ['Heute']),
+        el('button.btn.btn-sm.kal-heute-knopf', { type: 'button', title: 'Zum heutigen Tag', onclick: () => setzen({ tag: heute }) }, ['Heute']),
+        handy ? el('button.btn.btn-sm.kal-mini-knopf' + (mini.offen ? '.an' : ''), {
+          type: 'button', title: 'Tag im Monatskalender wählen', 'aria-expanded': String(!!mini.offen),
+          html: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4M3 9h18M7 13h2M11 13h2M15 13h2M7 17h2M11 17h2"/></svg>',
+          onclick: () => { mini.offen = !mini.offen; neu(); },
+        }) : null,
         el('div.kal-titel', {}, [
           el('h2', { text: titelText(modus, tage) }),
           el('div.sub', { text: modus === 'woche' ? `KW ${kwNummer(start)}` : tagText(termine[0]) }),
@@ -93,6 +116,8 @@ export const kalender = {
         ]),
       ]),
     ])]));
+
+    if (handy && miniBereich) inner.append(miniBereich);
 
     const karte = raster(modus, termine, heute, jetztMin, neu, (iso) => setzen({ modus: 'tag', tag: iso }));
     wischen(karte, (richtung) => setzen({ tag: tagePlus(sicht.tag, richtung * schritt) }));
@@ -203,7 +228,8 @@ function block(b, y, modus) {
   const titel = b.art === 'arbeit'
     ? (projekt ? [projekt.code, projekt.name].filter(Boolean).join(' ') : 'Arbeit')
     : b.halb ? '½ Urlaub' : ART_TEXT[b.art];
-  const zeit = `${zuUhrzeit(b.von)} bis ${b.laeuft ? 'jetzt' : zuUhrzeit(b.bis === 1440 ? 0 : b.bis)}`;
+  // In der Woche sind die Spalten schmal – dort der Strich statt „bis".
+  const zeit = `${zuUhrzeit(b.von)}${modus === 'woche' ? '–' : ' bis '}${b.laeuft ? 'jetzt' : zuUhrzeit(b.bis === 1440 ? 0 : b.bis)}`;
   const kurz = hoehe < 34;
   const zusatz = b.laeuft ? 'läuft' : b.vorgabe && b.art !== 'pause' ? 'Vorgabezeit' : b.vomVortag ? 'vom Vortag' : '';
 
@@ -218,3 +244,49 @@ function block(b, y, modus) {
       zusatz && (modus === 'tag' || hoehe > 60) ? el('div.kal-bzusatz', { text: zusatz }) : null,
     ]);
 }
+
+/* ---------- Minikalender ----------
+   Ein Monat zum Anklicken: der gewaehlte Tag erscheint gross in der
+   Tagessicht. Punkte zeigen, was an einem Tag war (Arbeit, Krank, Urlaub),
+   heute ist ausgefuellt, der gezeigte Tag bzw. die gezeigte Woche hinterlegt. */
+function minikalender({ sicht, modus, heute, waehlen, neu }) {
+  const { jahr, monat } = mini;
+  const tage = monatsTage(jahr, monat);
+  const erster = montagVon(tage[0]);
+  const letzter = tagePlus(montagVon(tage[tage.length - 1]), 6);
+  const wocheVon = montagVon(sicht.tag);
+  const blaettern = (n) => { const m = monatPlus(jahr, monat, n); mini.jahr = m.jahr; mini.monat = m.monat; neu(); };
+
+  const zellen = [];
+  for (let iso = erster; iso <= letzter; iso = tagePlus(iso, 1)) {
+    const imMonat = iso.slice(0, 7) === tage[0].slice(0, 7);
+    const gewaehlt = modus === 'tag' ? iso === sicht.tag : montagVon(iso) === wocheVon;
+    const t = imMonat ? tagesTermine(iso, state.daten, { heute }) : null;
+    const punkt = !t ? null
+      : t.art === 'krank' ? 'krank'
+        : (t.art === 'urlaub' || t.art === 'urlaubHalb') ? 'urlaub'
+          : t.istMin > 0 ? 'arbeit' : null;
+    zellen.push(el('button.mini-tag'
+      + (imMonat ? '' : '.fremd') + (iso === heute ? '.heute' : '') + (gewaehlt ? '.gewaehlt' : '')
+      + (modus === 'woche' && gewaehlt ? '.woche' : ''), {
+      type: 'button', title: datumLang(iso), onclick: () => waehlen(iso),
+    }, [
+      el('span', { text: String(tagZahl(iso)) }),
+      punkt ? el('i.mini-punkt.kal-' + punkt) : null,
+    ]));
+  }
+
+  return el('div.card.kal-mini', {}, [
+    el('div.mini-kopf', {}, [
+      el('button.btn.btn-sm.btn-ghost', { type: 'button', title: 'Vorheriger Monat', onclick: () => blaettern(-1) }, ['‹']),
+      el('b', { text: monatsBezeichnung(jahr, monat) }),
+      el('button.btn.btn-sm.btn-ghost', { type: 'button', title: 'Nächster Monat', onclick: () => blaettern(1) }, ['›']),
+    ]),
+    el('div.mini-raster', {}, [
+      ...WOCHENTAGE.map((w) => el('div.mini-wt', { text: w.slice(0, 2) })),
+      ...zellen,
+    ]),
+  ]);
+}
+
+const datumLang = (iso) => `${WOCHENTAGE_LANG[wochentag(iso)]}, ${tagZahl(iso)}. ${monatName(iso)} ${iso.slice(0, 4)}`;
