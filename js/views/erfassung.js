@@ -19,7 +19,7 @@ import {
 } from './tagzugriff.js';
 import { tagesListe } from './erfassungHandy.js';
 import { handyAnsicht } from '../ansicht.js';
-import { berichtDrucken } from './berichtDruck.js';
+import { berichtDrucken, berichtExcel } from './berichtDruck.js';
 import {
   WOCHENTAGE, heuteISO, monatsBezeichnung, kwNummer, istWochenende, wochentag,
 } from '../kalender.js';
@@ -89,6 +89,11 @@ function werkzeugleiste(jahr, monat, bilanz, neu) {
           title: 'Bericht für diesen Monat drucken oder im Druckdialog als PDF speichern',
           onclick: () => berichtDrucken(jahr, monat),
         }, ['Monatsbericht (PDF)']),
+        el('button.btn.btn-sm', {
+          type: 'button',
+          title: 'Bericht für diesen Monat als Excel-Datei (.xlsx) herunterladen – mit Buchungen und Projektstunden',
+          onclick: () => berichtExcel(jahr, monat),
+        }, ['Monatsbericht (Excel)']),
       ]),
     ]),
   ]);

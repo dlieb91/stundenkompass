@@ -11,23 +11,57 @@
 
    Die Zahlen kommen aus monatsbericht.js; hier wird nur gesetzt. */
 
-import { el, datum, num } from '../util.js';
+import { el, datum, num, toast } from '../util.js';
 import { state } from '../store.js';
 import { heuteISO, tagePlus } from '../kalender.js';
 import { stundenText } from '../zeit.js';
-import { projektMit, projektpflicht } from '../stammdaten.js';
+import { projektMit, projektpflicht, kundeName } from '../stammdaten.js';
 import { monatsbericht } from '../monatsbericht.js';
+import { berichtMappe, berichtDateiname } from '../berichtTabelle.js';
+import { mappeSchreiben } from '../xlsx.js';
 
 const h = (min, vorzeichen = false) => stundenText(min, { vorzeichen }).replace(' h', '');
 const kl = (min) => (min > 0 ? '.pos' : min < 0 ? '.neg' : '');
 
-export function berichtDrucken(jahr, monat) {
-  const heute = heuteISO();
-  const r = monatsbericht(state.daten, jahr, monat, {
+const projektKurz = (id) => projektMit(id)?.code || projektMit(id)?.name || '?';
+
+function bericht(jahr, monat, heute) {
+  return monatsbericht(state.daten, jahr, monat, {
     heute,
     projektpflicht: projektpflicht(),
-    projektName: (id) => projektMit(id)?.code || projektMit(id)?.name || '?',
+    projektName: projektKurz,
   });
+}
+
+/* Derselbe Bericht als Excel-Mappe (.xlsx): Monatsbericht, Buchungen und
+   Projekte. Gebaut wird im Browser, ohne Server; Aufbau in berichtTabelle.js. */
+export function berichtExcel(jahr, monat) {
+  const heute = heuteISO();
+  const r = bericht(jahr, monat, heute);
+  const mappe = berichtMappe(r, state.daten, {
+    heute,
+    projekt: (id) => {
+      const p = projektMit(id);
+      if (!p) return { bezeichnung: '?', kunde: '' };
+      return { bezeichnung: [p.code, p.name].filter(Boolean).join(' '), kunde: kundeName(p.kundeId) };
+    },
+  });
+  const blob = new Blob([mappeSchreiben(mappe)], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+  const url = URL.createObjectURL(blob);
+  const a = el('a', { href: url, download: berichtDateiname(r) });
+  document.body.append(a);
+  a.click();
+  a.remove();
+  // Safari braucht die Adresse noch einen Moment nach dem Klick.
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
+  toast('Excel-Datei heruntergeladen', 'ok');
+}
+
+export function berichtDrucken(jahr, monat) {
+  const heute = heuteISO();
+  const r = bericht(jahr, monat, heute);
 
   document.getElementById('druckbogen')?.remove();
   const bogen = bogenBauen(r, heute);

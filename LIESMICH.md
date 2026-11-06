@@ -260,6 +260,29 @@ Gedruckt wird ein eigener Bogen, nicht die Bildschirmansicht: Am Bildschirm ist 
 unsichtbar, nach dem Druck verschwindet er wieder. Im Team druckt die Verwaltung so
 auch den Bericht eines Mitarbeiters, den sie gerade betrachtet.
 
+### Monatsbericht als Excel
+
+Daneben lädt *Monatsbericht (Excel)* denselben Monat als `.xlsx` herunter, z. B.
+`Monatsbericht 2026-10 Max Mustermann.xlsx`. Die Datei entsteht im Browser, ohne
+Server, und öffnet sich in Excel, LibreOffice und Google Sheets. Sie hat drei Blätter:
+
+| Blatt | Inhalt |
+|---|---|
+| **Monatsbericht** | wie das PDF: Kopf, sechs Kennzahlen (Ist, Soll, Saldo, Stundenkonto, Resturlaub, Urlaubs-/Krankheitstage), ein Tag je Zeile mit farbiger Art, Stundenkonto, Urlaub, Hinweise, Unterschriften. Druckt auf eine A4-Seite. |
+| **Buchungen** | ein erfasster Abschnitt je Zeile: Datum, Von, Bis, Dauer, Projekt, Kunde, Notiz – mit Filter, gut für Pivot und Abrechnung |
+| **Projekte** | Stunden und Anteil je Projekt, summiert aus den Buchungen (nur, wenn im Monat ein Projekt gebucht ist) |
+
+Summen, Kontostand und Projektstunden sind **Formeln**, keine abgeschriebenen Zahlen:
+Korrigiert man in der Datei eine Zeit, gehen sie mit. Ist, Soll, Pause und Dauer sind
+echte Zeitwerte (`[h]:mm`). Salden stehen als Text (`+1:30`, `−0:45`), weil Excel
+negative Zeiten nicht darstellen kann; gerechnet wird mit den Minuten in den
+ausgeblendeten Spalten K und L.
+
+Grenzen: Die Dauer im Blatt *Buchungen* ist Bis − Von – eine eingetragene Pause ist
+dort nicht abgezogen, die Projektstunden sind deshalb Bruttozeiten. Die
+Tagesarten, das Soll und der Resturlaub sind Werte aus der App, keine Formeln: Ändert
+man in der Datei einen Urlaubstag in Arbeit, rechnet das Soll nicht um.
+
 ### Kalender
 
 Eigener Reiter **Kalender**: wann gearbeitet wurde, als Zeitachse wie in einem
@@ -603,7 +626,10 @@ js/stammdaten.js     Kunden und Projekte: Team vom Server, Einzelplatz aus der e
 js/zeit.js           Uhrzeiten, Abschnitte, Pausen, gesetzliche Grenzen
 js/stempeluhr.js     Kommen, Pause, Gehen, Projektwechsel (rein, ohne Oberfläche)
 js/monatsbericht.js  Inhalt des Monatsberichts: Tage, Konto, Urlaub (rein, ohne Oberfläche)
-js/views/berichtDruck.js  setzt den Bericht als Druckbogen und öffnet den Druckdialog
+js/views/berichtDruck.js  setzt den Bericht als Druckbogen und öffnet den Druckdialog;
+                     lädt ihn als Excel-Datei herunter
+js/berichtTabelle.js Aufbau der Excel-Mappe zum Monatsbericht (rein, ohne Oberfläche)
+js/xlsx.js           xlsx-Schreiber ohne Fremdbibliothek, läuft im Browser und in Node
 js/kalenderTermine.js  Blöcke eines Tages für den Kalender: Arbeit, Krank/Urlaub mit Vorgabezeiten (rein)
 js/views/kalender.js     Kalender: Woche oder Tag als Zeitachse
 js/kalender.js       Datumsrechnung, Kalenderwochen, Feiertage je Bundesland
